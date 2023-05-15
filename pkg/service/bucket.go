@@ -24,6 +24,10 @@ func (s BucketService) ListObjects(profile, bucketName, prefix string, input mod
 	return dirs, objects, nil
 }
 
+func (s BucketService) ListObjectsWithChan(profile, bucketName, prefix string, input model.Input, objectsChan chan model.ChanObject) {
+	s.BucketClient.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
+}
+
 func (s BucketService) RmObject(profile, bucketName, prefix string, input model.Input) error {
 	log.Debugf("rm object %s/%s", bucketName, prefix)
 	_, objects, err := s.ListObjects(profile, bucketName, prefix, input)
