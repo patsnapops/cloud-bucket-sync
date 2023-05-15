@@ -12,7 +12,7 @@ var apiServerCmd = &cobra.Command{
 	Use:  "api",
 	Long: "api",
 	Run: func(cmd *cobra.Command, args []string) {
-		apiConfig := config.LoadApiConfig(*configPath)
+		apiConfig := config.LoadApiConfig(configPath)
 		fmt.Println(tea.Prettify(apiConfig))
 	},
 }

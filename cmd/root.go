@@ -1,27 +1,13 @@
 package cmd
 
 import (
-	"github.com/patsnapops/noop/log"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 func init() {
-	configPath = pflag.StringP("config", "c", "~/.cbs/", "config file dir,default is ~/.cbs/")
-	debug := pflag.BoolP("debug", "d", false, "enable debug mode")
-	pflag.Parse()
-	if *debug {
-		log.Default().WithLevel(log.DebugLevel).WithFilename("cbs.log").Init()
-	} else {
-		log.Default().WithLevel(log.InfoLevel).WithFilename("cbs.log").Init()
-	}
 	rootCmd.AddCommand(apiServerCmd)
 	rootCmd.AddCommand(bucketCmd)
 }
-
-var (
-	configPath *string
-)
 
 var (
 	rootCmd = &cobra.Command{

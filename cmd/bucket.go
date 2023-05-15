@@ -9,30 +9,36 @@ import (
 	"os"
 	"strings"
 
-	"github.com/alibabacloud-go/tea/tea"
 	"github.com/olekukonko/tablewriter"
+	"github.com/patsnapops/noop/log"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 var (
-	profile *string
-	input   model.Input
+	profile    string
+	limit      int64
+	recursive  bool
+	include    []string
+	exclude    []string
+	timeBefore string
+	timeAfter  string
+	configPath string
+	debug      bool
 )
 
 func init() {
 	bucketCmd.AddCommand(rmCmd)
 	bucketCmd.AddCommand(lsCmd)
-	profile = pflag.StringP("profile", "p", "default", "profile name")
-	limit := pflag.Int64P("limit", "l", 1000, "limit")
-	recursive := pflag.BoolP("recursive", "r", false, "recursive")
-	include := pflag.StringP("include", "i", "", "include")
-	exclude := pflag.StringP("exclude", "e", "", "exclude")
-	timeBefore := pflag.StringP("time-before", "b", "", "time before 2023-03-01 00:00:00")
-	timeAfter := pflag.StringP("time-after", "a", "", "time after 1992-03-01 00:00:00")
-	pflag.Parse()
-	input = model.NewInput(tea.BoolValue(recursive), strings.Split(tea.StringValue(include), ","), strings.Split(tea.StringValue(exclude), ","), tea.StringValue(timeBefore), tea.StringValue(timeAfter), tea.Int64Value(limit))
-	// fmt.Println(tea.Prettify(input))
+	bucketCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "enable debug mode")
+	bucketCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "~/.cbs/", "config file dir,default is ~/.cbs/")
+
+	bucketCmd.PersistentFlags().StringVarP(&profile, "profile", "p", "default", "profile name")
+	bucketCmd.PersistentFlags().Int64VarP(&limit, "limit", "l", 1000, "limit")
+	bucketCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "r", false, "recursive")
+	bucketCmd.PersistentFlags().StringArrayVarP(&include, "include", "i", []string{}, "'[aaa,sss]'")
+	bucketCmd.PersistentFlags().StringArrayVarP(&exclude, "exclude", "e", []string{}, "'[aaa,sss]'")
+	bucketCmd.PersistentFlags().StringVarP(&timeBefore, "time-before", "b", "", "time before 2023-03-01 00:00:00")
+	bucketCmd.PersistentFlags().StringVarP(&timeAfter, "time-after", "a", "", "time after 1992-03-01 00:00:00")
 }
 
 var bucketCmd = &cobra.Command{
@@ -48,12 +54,19 @@ var lsCmd = &cobra.Command{
 	Use:  "ls",
 	Long: "ls bucket or object",
 	Run: func(cmd *cobra.Command, args []string) {
+		input := model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit)
+		if debug == true {
+			log.Default().WithLevel(log.DebugLevel).WithFilename("cbs.log").Init()
+		} else {
+			log.Default().WithLevel(log.InfoLevel).WithFilename("cbs.log").Init()
+		}
+
 		switch len(args) {
 		case 1:
-			cliConfig := config.LoadCliConfig(tea.StringValue(configPath))
+			cliConfig := config.LoadCliConfig(configPath)
 			bucketService := service.NewBucketService(io.NewBucketClient(cliConfig.Profiles))
 			bucketName, prefix := parseBucketAndPrefix(args[0])
-			dirs, objects, err := bucketService.ListObjects(tea.StringValue(profile), bucketName, prefix, input)
+			dirs, objects, err := bucketService.ListObjects(profile, bucketName, prefix, input)
 			if err != nil {
 				panic(err)
 			}
@@ -84,14 +97,19 @@ var rmCmd = &cobra.Command{
 	Use:  "rm",
 	Long: "rm bucket or object",
 	Run: func(cmd *cobra.Command, args []string) {
-		// cliConfig := config.LoadCliConfig(*configPath)
-		// fmt.Println(tea.Prettify(cliConfig))
+		input := model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit)
+		if debug == true {
+			log.Default().WithLevel(log.DebugLevel).WithFilename("cbs.log").Init()
+		} else {
+			log.Default().WithLevel(log.InfoLevel).WithFilename("cbs.log").Init()
+		}
+
 		switch len(args) {
 		case 1:
-			cliConfig := config.LoadCliConfig(tea.StringValue(configPath))
+			cliConfig := config.LoadCliConfig(configPath)
 			bucketService := service.NewBucketService(io.NewBucketClient(cliConfig.Profiles))
 			bucketName, prefix := parseBucketAndPrefix(args[0])
-			err := bucketService.RmObject(tea.StringValue(profile), bucketName, prefix, input)
+			err := bucketService.RmObject(profile, bucketName, prefix, input)
 			if err != nil {
 				panic(err)
 			}
