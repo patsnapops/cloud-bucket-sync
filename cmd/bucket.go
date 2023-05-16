@@ -27,6 +27,11 @@ var (
 	debug      bool
 	queue      int64
 )
+var (
+	dryRun    bool
+	force     bool
+	threadNum int64
+)
 
 func init() {
 	bucketCmd.AddCommand(rmCmd)
@@ -41,14 +46,18 @@ func init() {
 	bucketCmd.PersistentFlags().StringArrayVarP(&exclude, "exclude", "e", []string{}, "'[aaa,sss]'")
 	bucketCmd.PersistentFlags().StringVarP(&timeBefore, "time-before", "b", "", "time before 2023-03-01 00:00:00")
 	bucketCmd.PersistentFlags().StringVarP(&timeAfter, "time-after", "a", "", "time after 1992-03-01 00:00:00")
-
 	bucketCmd.PersistentFlags().Int64VarP(&queue, "queue", "q", 0, "queue")
+
+	rmCmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "dry run")
+	rmCmd.PersistentFlags().BoolVarP(&force, "force", "f", false, "force")
+	rmCmd.PersistentFlags().Int64VarP(&threadNum, "thread-num", "t", 1, "thread num")
+
 }
 
 var bucketCmd = &cobra.Command{
 	Use:     "bucket",
 	Aliases: []string{"b"},
-	Long:    "bucket for cbs.you can cp,upload,download,rm buckets or objects by this command.",
+	Long:    "you can cp,upload,download,rm buckets or objects by this command.",
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
@@ -56,7 +65,7 @@ var bucketCmd = &cobra.Command{
 
 var lsCmd = &cobra.Command{
 	Use:  "ls",
-	Long: "ls bucket or object",
+	Long: "ls bucket or object with s3_url must start with s3://",
 	Run: func(cmd *cobra.Command, args []string) {
 		input := model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit)
 		if debug == true {
@@ -76,9 +85,7 @@ var lsCmd = &cobra.Command{
 				// 放弃table的展示，因为他不能体现chan的特性，会等到所有结果出来一起打印。
 				var totalSize int64
 				var totalObjects int64
-
 				go bucketService.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
-
 				for objectChan := range objectsChan {
 					if objectChan.Error != nil {
 						panic(objectChan.Error)
@@ -88,10 +95,12 @@ var lsCmd = &cobra.Command{
 						if objectChan.Count > limit && limit != 0 {
 							break
 						}
-						fmt.Printf("%s\t%s\t%s\t%s\t%s\n", objectChan.Obj.Key, "", objectChan.Obj.LastModified.UTC().Format("2006-01-02 15:04:05"), FormatSize(objectChan.Obj.Size), objectChan.Obj.ETag)
+						fmt.Printf("%s\t%s\t%22s\t%10s\t%34s\n",
+							objectChan.Obj.Key, "", objectChan.Obj.LastModified.UTC().Format("2006-01-02 15:04:05"),
+							FormatSize(objectChan.Obj.Size), objectChan.Obj.ETag)
 					}
 					if objectChan.Dir != nil {
-						fmt.Printf("%s\t%s\t%s\t%s\t%s\n", objectChan.Dir, "dir", "", "", "")
+						fmt.Printf("%s\t%s\t%s\t%s\t%s\n", *objectChan.Dir, "dir", "", "", "")
 					}
 					totalObjects = objectChan.Count
 				}
@@ -126,7 +135,7 @@ var lsCmd = &cobra.Command{
 
 var rmCmd = &cobra.Command{
 	Use:  "rm",
-	Long: "rm bucket or object",
+	Long: "rm bucket or object with s3_url must start with s3://",
 	Run: func(cmd *cobra.Command, args []string) {
 		input := model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit)
 		if debug == true {
@@ -140,14 +149,71 @@ var rmCmd = &cobra.Command{
 			cliConfig := config.LoadCliConfig(configPath)
 			bucketService := service.NewBucketService(io.NewBucketClient(cliConfig.Profiles))
 			bucketName, prefix := parseBucketAndPrefix(args[0])
-			err := bucketService.RmObject(profile, bucketName, prefix, input)
-			if err != nil {
-				panic(err)
+			// 默认使用chan方式删除
+			if queue == 0 {
+				queue = 1000
 			}
+			objectsChan := make(chan model.ChanObject, queue)
+			// 放弃table的展示，因为他不能体现chan的特性，会等到所有结果出来一起打印。
+			var totalSize int64
+			var totalObjects int64
+			go bucketService.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
+			// 实现多线程删除，当force为true时，不需要等待确认
+			if !force {
+				// 默认使用1个线程 否则在等待确认时候会不知道删的哪个。
+				threadNum = 1
+			}
+			deleteChan := make(chan int, threadNum)
+			for objectChan := range objectsChan {
+				if objectChan.Error != nil {
+					panic(objectChan.Error)
+				}
+				if objectChan.Obj != nil {
+					totalSize += objectChan.Obj.Size
+					if objectChan.Count > limit && limit != 0 {
+						break
+					}
+					deleteChan <- 1
+					go deleteObject(bucketService, bucketName, objectChan.Obj.Key, dryRun, force, deleteChan)
+				}
+
+				totalObjects = objectChan.Count
+			}
+			for {
+				if len(deleteChan) == 0 {
+					break
+				}
+			}
+			fmt.Printf("\nTotal Objects: %d, Total Size: %s\n", totalObjects, FormatSize(totalSize))
 		default:
 			cmd.Help()
 		}
 	},
+}
+
+func deleteObject(bucketService model.BucketContract, bucketName, key string, dryRun bool, force bool, deleteChan chan int) {
+	defer func() {
+		<-deleteChan
+	}()
+	if dryRun {
+		fmt.Printf("dry run delete %s/%s\n", bucketName, key)
+		return
+	}
+	if !force {
+		fmt.Printf("delete %s/%s? [y/n]: ", bucketName, key)
+		var confirm string
+		fmt.Scanln(&confirm)
+		if confirm == "y" || confirm == "Y" || confirm == "yes" || confirm == "YES" {
+		} else {
+			return
+		}
+	}
+	err := bucketService.RmObject(profile, bucketName, key)
+	if err != nil {
+		fmt.Printf("delete %s/%s failed: %s\n", bucketName, key, err.Error())
+	} else {
+		fmt.Printf("delete %s/%s success\n", bucketName, key)
+	}
 }
 
 // turn s3://bucket/prefix to bucket and prefix

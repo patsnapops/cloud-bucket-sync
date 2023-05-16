@@ -158,5 +158,14 @@ func (c bucketClient) ListObjectsWithChan(profile, bucketName, prefix string, in
 }
 
 func (c bucketClient) RmObject(profile, bucketName, prefix string) error {
-	return nil
+	if sess, ok := c.sessions[profile]; ok {
+		svc := s3.New(sess)
+		s3Input := &s3.DeleteObjectInput{
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(prefix),
+		}
+		_, err := svc.DeleteObject(s3Input)
+		return err
+	}
+	return fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
 }

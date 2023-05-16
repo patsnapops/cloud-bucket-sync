@@ -2,8 +2,6 @@ package service
 
 import (
 	"cbs/pkg/model"
-
-	"github.com/patsnapops/noop/log"
 )
 
 type BucketService struct {
@@ -28,15 +26,6 @@ func (s BucketService) ListObjectsWithChan(profile, bucketName, prefix string, i
 	s.BucketClient.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
 }
 
-func (s BucketService) RmObject(profile, bucketName, prefix string, input model.Input) error {
-	log.Debugf("rm object %s/%s", bucketName, prefix)
-	_, objects, err := s.ListObjects(profile, bucketName, prefix, input)
-	if err != nil {
-		return err
-	}
-	log.Debugf("objects %v", objects)
-	for _, object := range objects {
-		log.Debugf("rm object %s/%s", bucketName, object.Key)
-	}
-	return nil
+func (s BucketService) RmObject(profile, bucketName, prefix string) error {
+	return s.BucketClient.RmObject(profile, bucketName, prefix)
 }
