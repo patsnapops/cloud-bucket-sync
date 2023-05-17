@@ -18,7 +18,7 @@ COPY . ${BUILD_DIR}
 RUN go mod tidy && go build && mv cbs /usr/bin/cbs
 
 # Stage2
-FROM centos7:latest
+FROM centos:7
 
 ENV TZ "Asia/Shanghai"
 

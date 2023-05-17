@@ -77,7 +77,7 @@ func LoadApiConfig(configDir string) *ApiConfig {
 	}
 	log.Debugf("config dir %s", configDir)
 	apiConfig := &ApiConfig{}
-	err := loadConfig(configDir + "api.yaml")
+	err := loadConfig(configDir + "manager.yaml")
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
@@ -90,7 +90,7 @@ func LoadCliConfig(configDir string) *CliConfig {
 	if !strings.HasSuffix(configDir, "/") {
 		configDir = configDir + "/"
 	}
-	err := loadConfig(configDir + "manager.yaml")
+	err := loadConfig(configDir + "cli.yaml")
 	if err != nil {
 		panic(err)
 	}
