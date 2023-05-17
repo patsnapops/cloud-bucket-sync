@@ -27,9 +27,7 @@ COPY --from=builder /go/src/cbs/entrypoint.sh /root/entrypoint.sh
 
 WORKDIR /root
 
-RUN mkdir -p /opt/cbs/logs/ && \
-	chmod 755 /opt/logs/apps && \
-	chmod +x /root/entrypoint.sh 
+RUN chmod +x /root/entrypoint.sh 
 
 USER root
 
