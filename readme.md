@@ -1,8 +1,9 @@
-## 最佳实践
-
-### bucket 查询相关
-
+## 简介
+cbs 是一个云原生的用途不同云对象存储的同步转移的工具。目前支持S3协议类型的对象存储同步。附带的还做了cli工具，可以用来查看同步状态，同步进度以及对象操作等。
+## 架构
+![架构图](）
+## 使用
 ```bash
-# 递归查询一个大量的对象，可以使用chan特性，-q 100 指定chan的缓冲区大小，-r 递归查询， -l limit 指定查询的数量
-cbs b ls s3://patent-familydata/ -q 100 -l 100 -r
+docker build -t cbs .
+docker-compose up -d
 ```

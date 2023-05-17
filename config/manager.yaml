@@ -1,0 +1,7 @@
+pg:
+  host: "dev-pg.patsnap.info"
+  user: "patsnap"
+  password: "eWrlnjGd1b2aA4O1p4"
+  # database: "pop-dev"
+  database: "pop"
+  port: 30075

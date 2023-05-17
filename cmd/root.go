@@ -7,6 +7,8 @@ import (
 func init() {
 	rootCmd.AddCommand(apiServerCmd)
 	rootCmd.AddCommand(bucketCmd)
+	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "enable debug mode")
+	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "~/.cbs/", "config file dir,default is ~/.cbs/")
 }
 
 var (

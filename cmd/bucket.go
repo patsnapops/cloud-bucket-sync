@@ -26,18 +26,16 @@ var (
 	configPath string
 	debug      bool
 	queue      int64
+	threadNum  int64
 )
 var (
-	dryRun    bool
-	force     bool
-	threadNum int64
+	dryRun bool
+	force  bool
 )
 
 func init() {
 	bucketCmd.AddCommand(rmCmd)
 	bucketCmd.AddCommand(lsCmd)
-	bucketCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "enable debug mode")
-	bucketCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "~/.cbs/", "config file dir,default is ~/.cbs/")
 
 	bucketCmd.PersistentFlags().StringVarP(&profile, "profile", "p", "default", "profile name")
 	bucketCmd.PersistentFlags().Int64VarP(&limit, "limit", "l", 0, "limit")
@@ -48,10 +46,9 @@ func init() {
 	bucketCmd.PersistentFlags().StringVarP(&timeAfter, "time-after", "a", "", "time after 1992-03-01 00:00:00")
 	bucketCmd.PersistentFlags().Int64VarP(&queue, "queue", "q", 0, "queue")
 
-	rmCmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "dry run")
-	rmCmd.PersistentFlags().BoolVarP(&force, "force", "f", false, "force")
-	rmCmd.PersistentFlags().Int64VarP(&threadNum, "thread-num", "t", 1, "thread num")
-
+	rmCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "dry run")
+	rmCmd.Flags().BoolVarP(&force, "force", "f", false, "force")
+	rmCmd.Flags().Int64VarP(&threadNum, "thread-num", "t", 1, "thread num")
 }
 
 var bucketCmd = &cobra.Command{
@@ -104,8 +101,7 @@ var lsCmd = &cobra.Command{
 					}
 					totalObjects = objectChan.Count
 				}
-				fmt.Printf("\nTotal Objects: %d, Total Size: %s\n", totalObjects, FormatSize(totalSize))
-				log.Debugf("list objects cost %s", time.Since(timeStart))
+				fmt.Printf("\nTotal: %d, Size: %s, Cost: %s\n", totalObjects, FormatSize(totalSize), time.Since(timeStart))
 			} else {
 				dirs, objects, err := bucketService.ListObjects(profile, bucketName, prefix, input)
 				if err != nil {
@@ -146,6 +142,7 @@ var rmCmd = &cobra.Command{
 
 		switch len(args) {
 		case 1:
+			timeStart := time.Now()
 			cliConfig := config.LoadCliConfig(configPath)
 			bucketService := service.NewBucketService(io.NewBucketClient(cliConfig.Profiles))
 			bucketName, prefix := parseBucketAndPrefix(args[0])
@@ -184,7 +181,7 @@ var rmCmd = &cobra.Command{
 					break
 				}
 			}
-			fmt.Printf("\nTotal Objects: %d, Total Size: %s\n", totalObjects, FormatSize(totalSize))
+			fmt.Printf("\nTotal Objects: %d, Total Size: %s, Cost Time: %s\n", totalObjects, FormatSize(totalSize), time.Since(timeStart))
 		default:
 			cmd.Help()
 		}

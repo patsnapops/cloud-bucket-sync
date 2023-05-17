@@ -6,12 +6,31 @@ import (
 	"strings"
 
 	"github.com/patsnapops/noop/log"
+	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 )
 
 type ApiConfig struct {
-	Host string `mapstructure:"host"`
+	PG PostgresConfig `mapstructure:"pg"`
 }
+type PostgresConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	Database string `mapstructure:"database"`
+}
+
+func (c *PostgresConfig) GetUrl() string {
+	return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Shanghai",
+		c.Host,
+		c.User,
+		c.Password,
+		c.Database,
+		cast.ToString(c.Port),
+	)
+}
+
 type CliConfig struct {
 	Host     string    `mapstructure:"host"`
 	Cli      string    `mapstructure:"cli"`
@@ -71,7 +90,7 @@ func LoadCliConfig(configDir string) *CliConfig {
 	if !strings.HasSuffix(configDir, "/") {
 		configDir = configDir + "/"
 	}
-	err := loadConfig(configDir + "cli.yaml")
+	err := loadConfig(configDir + "manager.yaml")
 	if err != nil {
 		panic(err)
 	}
