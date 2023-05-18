@@ -49,7 +49,7 @@ var startCmd = &cobra.Command{
 	Use:  "start",
 	Long: "start manager server, default port is 8080",
 	Run: func(cmd *cobra.Command, args []string) {
-		if debug == true {
+		if debug {
 			log.Default().WithLevel(log.DebugLevel).WithFilename("cbs.log").Init()
 		} else {
 			log.Default().WithLevel(log.InfoLevel).WithFilename("cbs.log").Init()

@@ -24,6 +24,14 @@ cbs b ls s3://patent-familydata/ -l 100 -r -q 100
 # 删除对象 -p 指定profile， -f 强制删除， --thread-num 指定并发数，删除默认指定了-q 1000来及时处理已经加载到内存的对象而不需要等待全部加载完毕
 cbs b rm s3://patent-familydata/ -p us0066 -r --limit 100 -f --thread-num 30
 ```
+```bash
+# 删除对象来源于指定文件 .txt txt格式必须是每个key为一行（兼容空格，空行）
+cbs b rm s3://patent-familydata/ -c ./config/ -p us0066 -d --dry-run --file keys.txt 
+# 删除对象来源于指定文件 .csv
+cbs b rm s3://patent-familydata/ -c ./config/ -p us0066 -f --dry-run --file efc35b3c-2453-4aba-9935-1b28f331ccad.csv 
+# 删除对象来源于指定目录，处理目录下所有 txt和csv结尾的文件
+cbs b rm s3://patent-familydata/ -c ./config/ -p us0066 -f --dry-run --dir ./ 
+```
 
 #### 性能相关
 ```bash

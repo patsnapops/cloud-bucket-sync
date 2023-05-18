@@ -4,3 +4,6 @@ cbs
 config/manager.yaml
 .gitignore
 config/worker.yaml
+tests/efc35b3c-2453-4aba-9935-1b28f331ccad.csv
+tests/keys copy.txt
+tests/keys.txt

@@ -1,11 +1,15 @@
 package cmd
 
 import (
+	"bufio"
 	"cbs/config"
-	"cbs/pkg/io"
+	cbsIo "cbs/pkg/io"
 	"cbs/pkg/model"
 	"cbs/pkg/service"
+	"encoding/csv"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -32,6 +36,8 @@ var (
 var (
 	dryRun bool
 	force  bool
+	file   string //支持指定txt csv的类型。
+	dir    string //支持指定目录，然后处理目录下的所有的txt csv文件。
 )
 
 func init() {
@@ -50,6 +56,10 @@ func init() {
 	rmCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "dry run")
 	rmCmd.Flags().BoolVarP(&force, "force", "f", false, "force")
 	rmCmd.Flags().Int64VarP(&threadNum, "thread-num", "t", 1, "thread num")
+	// 支持--file参数，可以从文件中读取bucket对象
+	rmCmd.Flags().StringVarP(&file, "file", "", "", "object file path,file must be key per line.")
+	// 支持--dir参数，可以从目录中读取bucket对象
+	rmCmd.Flags().StringVarP(&dir, "dir", "", "", "must be end with / support *.txt,*.csv")
 }
 
 var bucketCmd = &cobra.Command{
@@ -65,17 +75,17 @@ var lsCmd = &cobra.Command{
 	Use:  "ls",
 	Long: "ls bucket or object with s3_url must start with s3://",
 	Run: func(cmd *cobra.Command, args []string) {
-		input := model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit)
 		if debug {
 			log.Default().WithLevel(log.DebugLevel).WithFilename("cbs.log").Init()
 		} else {
 			log.Default().WithLevel(log.InfoLevel).WithFilename("cbs.log").Init()
 		}
+		input := model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit)
 		log.Debugf(tea.Prettify(input))
 		switch len(args) {
 		case 1:
 			cliConfig := config.LoadCliConfig(configPath)
-			bucketService := service.NewBucketService(io.NewBucketClient(cliConfig.Profiles))
+			bucketService := service.NewBucketService(cbsIo.NewBucketClient(cliConfig.Profiles))
 			bucketName, prefix := parseBucketAndPrefix(args[0])
 			timeStart := time.Now()
 			if queue != 0 {
@@ -90,7 +100,7 @@ var lsCmd = &cobra.Command{
 					}
 					if objectChan.Obj != nil {
 						totalSize += objectChan.Obj.Size
-						if objectChan.Count > limit && limit != 0 {
+						if totalObjects > limit && limit != 0 {
 							break
 						}
 						fmt.Printf("%s\t%s\t%22s\t%10s\t%34s\n",
@@ -100,7 +110,7 @@ var lsCmd = &cobra.Command{
 					if objectChan.Dir != nil {
 						fmt.Printf("%s\t%s\t%s\t%s\t%s\n", *objectChan.Dir, "dir", "", "", "")
 					}
-					totalObjects = objectChan.Count
+					totalObjects++
 				}
 				fmt.Printf("\nTotal: %d, Size: %s, Cost: %s\n", totalObjects, FormatSize(totalSize), time.Since(timeStart))
 			} else {
@@ -134,18 +144,23 @@ var rmCmd = &cobra.Command{
 	Use:  "rm",
 	Long: "rm bucket or object with s3_url must start with s3://\nrm default use --queue 1000 reduce memory usage and loading time.",
 	Run: func(cmd *cobra.Command, args []string) {
-		input := model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit)
 		if debug {
 			log.Default().WithLevel(log.DebugLevel).WithFilename("cbs.log").Init()
 		} else {
 			log.Default().WithLevel(log.InfoLevel).WithFilename("cbs.log").Init()
 		}
+		// check 冲突
+		log.Debugf("file: %s, dir: %s, timeAfter: %s, timeBefore: %s", file, dir, timeAfter, timeBefore)
+		if (file != "" || dir != "") && (timeAfter != "" || timeBefore != "") {
+			panic("not support time filter when use file or dir!")
+		}
+		input := model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit)
 
 		switch len(args) {
 		case 1:
 			timeStart := time.Now()
 			cliConfig := config.LoadCliConfig(configPath)
-			bucketService := service.NewBucketService(io.NewBucketClient(cliConfig.Profiles))
+			bucketService := service.NewBucketService(cbsIo.NewBucketClient(cliConfig.Profiles))
 			bucketName, prefix := parseBucketAndPrefix(args[0])
 			// 默认使用chan方式删除
 			if queue == 0 {
@@ -153,29 +168,40 @@ var rmCmd = &cobra.Command{
 			}
 			objectsChan := make(chan model.ChanObject, queue)
 			// 放弃table的展示，因为他不能体现chan的特性，会等到所有结果出来一起打印。
-			var totalSize int64
-			var totalObjects int64
-			go bucketService.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
+			if file != "" {
+				if strings.HasSuffix(file, ".csv") {
+					go readObjectsFromCsv(file, input, objectsChan, true)
+				} else {
+					go readObjectsFromTxt(file, input, objectsChan, true)
+				}
+			} else {
+				if dir != "" {
+					go readObjectsFromDir(dir, input, objectsChan)
+				} else {
+					go bucketService.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
+				}
+			}
 			// 实现多线程删除，当force为true时，不需要等待确认
 			if !force {
 				// 默认使用1个线程 否则在等待确认时候会不知道删的哪个。
 				threadNum = 1
 			}
 			deleteChan := make(chan int, threadNum)
+			var totalSize int64
+			var totalObjects int64
 			for objectChan := range objectsChan {
 				if objectChan.Error != nil {
 					panic(objectChan.Error)
 				}
 				if objectChan.Obj != nil {
 					totalSize += objectChan.Obj.Size
-					if objectChan.Count > limit && limit != 0 {
+					if totalObjects >= limit && limit != 0 {
 						break
 					}
 					deleteChan <- 1
 					go deleteObject(bucketService, bucketName, objectChan.Obj.Key, dryRun, force, deleteChan)
 				}
-
-				totalObjects = objectChan.Count
+				totalObjects++
 			}
 			for {
 				if len(deleteChan) == 0 {
@@ -242,4 +268,98 @@ func FormatSize(b int64) string {
 	} else {
 		return fmt.Sprintf("%.2f TB", float64(b)/(1024*1024*1024*1024))
 	}
+}
+
+// 在文件中读取bucket 放到objectsChan中
+// 支持处理.txt结尾的文件，每个key一行
+func readObjectsFromTxt(file string, input model.Input, objectsChan chan model.ChanObject, closeChan bool) {
+	f, err := os.Open(file)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		key := scanner.Text()
+		// 处理空格
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		obj := model.Object{
+			Key:  key,
+			Size: 0,
+		}
+		if model.ListObjectsWithFilter(obj, input) {
+			log.Debugf("read key: %s", key)
+			objectsChan <- model.ChanObject{
+				Obj: &obj,
+			}
+		}
+
+	}
+	if closeChan {
+		close(objectsChan)
+	}
+}
+
+// 在文件中读取bucket 放到objectsChan中
+// 支持处理.txt结尾的文件，每个key一行
+func readObjectsFromCsv(file string, input model.Input, objectsChan chan model.ChanObject, closeChan bool) {
+	f, err := os.Open(file)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	csvReader := csv.NewReader(f)
+	for {
+		record, err := csvReader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			panic(err)
+		}
+		key := record[1]
+		// 处理空格
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		obj := model.Object{
+			Key:  key,
+			Size: 0,
+		}
+		log.Debugf("read key: %s", key)
+		if model.ListObjectsWithFilter(obj, input) {
+			objectsChan <- model.ChanObject{
+				Obj: &obj,
+			}
+		}
+	}
+	if closeChan {
+		close(objectsChan)
+	}
+}
+
+// 支持整个dir的文件遍历objects 放到objectsChan中
+func readObjectsFromDir(dir string, input model.Input, objectsChan chan model.ChanObject) {
+	// 读取目录下的所有文件，只处理.txt .csv结尾的文件
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		panic(err)
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		if strings.HasSuffix(file.Name(), ".txt") {
+			readObjectsFromTxt(dir+"/"+file.Name(), input, objectsChan, false)
+		} else if strings.HasSuffix(file.Name(), ".csv") {
+			readObjectsFromCsv(dir+"/"+file.Name(), input, objectsChan, false)
+		} else {
+			continue
+		}
+	}
+	close(objectsChan)
 }

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/patsnapops/noop/log"
 )
 
@@ -44,6 +45,7 @@ func NewInput(recursive bool, include, exclude string, timeBefore, timeAfter str
 			input.TimeAfter = &timeA
 		}
 	}
+	log.Debugf(tea.Prettify(input))
 	return input
 }
 
@@ -71,5 +73,42 @@ type ChanObject struct {
 	Error *error
 	Obj   *Object
 	Dir   *string
-	Count int64
+}
+
+// 过滤对象，符合条件返回true 默认都符合
+func ListObjectsWithFilter(key Object, input Input) bool {
+	contain := false
+	if len(input.Include) != 0 {
+		for _, include := range input.Include {
+			if strings.Contains(key.Key, include) {
+				contain = true
+			}
+		}
+	}
+	// 默认对象都是不剔除的
+	excludeB := false
+	if len(input.Exclude) != 0 {
+		for _, exclude := range input.Exclude {
+			if strings.Contains(key.Key, exclude) {
+				excludeB = true
+			}
+		}
+	}
+
+	timeAfterB := false
+	if input.TimeAfter != nil {
+		if key.LastModified.Before(*input.TimeAfter) {
+			timeAfterB = true
+		}
+	}
+	timeBeforeB := false
+	if input.TimeBefore != nil {
+		if key.LastModified.After(*input.TimeBefore) {
+			timeBeforeB = true
+		}
+	}
+	if !contain || excludeB || timeAfterB || timeBeforeB {
+		return false
+	}
+	return true
 }
