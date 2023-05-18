@@ -80,10 +80,13 @@ func ListObjectsWithFilter(key Object, input Input) bool {
 	contain := false
 	if len(input.Include) != 0 {
 		for _, include := range input.Include {
+			log.Debugf("key: %v, include: %v", key.Key, include)
 			if strings.Contains(key.Key, include) {
 				contain = true
 			}
 		}
+	} else {
+		contain = true
 	}
 	// 默认对象都是不剔除的
 	excludeB := false
@@ -107,6 +110,7 @@ func ListObjectsWithFilter(key Object, input Input) bool {
 			timeBeforeB = true
 		}
 	}
+	log.Debugf("key: %v, contain: %v, excludeB: %v, timeAfterB: %v, timeBeforeB: %v", key, contain, excludeB, timeAfterB, timeBeforeB)
 	if !contain || excludeB || timeAfterB || timeBeforeB {
 		return false
 	}

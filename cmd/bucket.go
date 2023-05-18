@@ -34,10 +34,11 @@ var (
 	threadNum  int64
 )
 var (
-	dryRun bool
-	force  bool
-	file   string //支持指定txt csv的类型。
-	dir    string //支持指定目录，然后处理目录下的所有的txt csv文件。
+	dryRun    bool
+	force     bool
+	file      string //支持指定txt csv的类型。
+	dir       string //支持指定目录，然后处理目录下的所有的txt csv文件。
+	errorFile string //错误文件汇总文本
 )
 
 func init() {
@@ -60,6 +61,8 @@ func init() {
 	rmCmd.Flags().StringVarP(&file, "file", "", "", "object file path,file must be key per line.")
 	// 支持--dir参数，可以从目录中读取bucket对象
 	rmCmd.Flags().StringVarP(&dir, "dir", "", "", "must be end with / support *.txt,*.csv")
+	// 支持--error-file参数，可以将错误的对象写入到文件中
+	rmCmd.Flags().StringVarP(&errorFile, "error-file", "", ".cbs_rm_error.txt", "error file path")
 }
 
 var bucketCmd = &cobra.Command{
@@ -156,6 +159,11 @@ var rmCmd = &cobra.Command{
 		}
 		input := model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit)
 
+		f, err := os.OpenFile(errorFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			log.Panicf("open error file %s failed: %s", errorFile, err.Error())
+		}
+		defer f.Close()
 		switch len(args) {
 		case 1:
 			timeStart := time.Now()
@@ -199,7 +207,7 @@ var rmCmd = &cobra.Command{
 						break
 					}
 					deleteChan <- 1
-					go deleteObject(bucketService, bucketName, objectChan.Obj.Key, dryRun, force, deleteChan)
+					go deleteObject(bucketService, bucketName, objectChan.Obj.Key, dryRun, force, deleteChan, f)
 				}
 				totalObjects++
 			}
@@ -208,14 +216,16 @@ var rmCmd = &cobra.Command{
 					break
 				}
 			}
-			fmt.Printf("\nTotal Objects: %d, Total Size: %s, Cost Time: %s\n", totalObjects, FormatSize(totalSize), time.Since(timeStart))
+			defer func() {
+				fmt.Printf("\nTotal Objects: %d, Total Size: %s, Cost Time: %s\n", totalObjects, FormatSize(totalSize), time.Since(timeStart))
+			}()
 		default:
 			cmd.Help()
 		}
 	},
 }
 
-func deleteObject(bucketService model.BucketContract, bucketName, key string, dryRun bool, force bool, deleteChan chan int) {
+func deleteObject(bucketService model.BucketContract, bucketName, key string, dryRun bool, force bool, deleteChan chan int, f *os.File) {
 	defer func() {
 		<-deleteChan
 	}()
@@ -235,8 +245,7 @@ func deleteObject(bucketService model.BucketContract, bucketName, key string, dr
 	err := bucketService.RmObject(profile, bucketName, key)
 	if err != nil {
 		fmt.Printf("delete %s/%s failed: %s\n", bucketName, key, err.Error())
-		// TODO: remove panic for service
-		panic(err)
+		f.WriteString(key + " " + err.Error() + "\n")
 	} else {
 		fmt.Printf("delete %s/%s success\n", bucketName, key)
 	}
