@@ -201,7 +201,10 @@ func (c bucketClient) RmObject(profile, bucketName, prefix string) error {
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(prefix),
 		}
-		_, err := svc.DeleteObject(s3Input)
+		resp, err := svc.DeleteObject(s3Input)
+		if err != nil {
+			log.Errorf(resp.String())
+		}
 		return err
 	}
 	return fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)

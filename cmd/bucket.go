@@ -20,8 +20,8 @@ var (
 	profile    string
 	limit      int64
 	recursive  bool
-	include    []string
-	exclude    []string
+	include    string
+	exclude    string
 	timeBefore string
 	timeAfter  string
 	configPath string
@@ -41,10 +41,10 @@ func init() {
 	bucketCmd.PersistentFlags().StringVarP(&profile, "profile", "p", "default", "profile name")
 	bucketCmd.PersistentFlags().Int64VarP(&limit, "limit", "l", 0, "limit")
 	bucketCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "r", false, "recursive")
-	bucketCmd.PersistentFlags().StringArrayVarP(&include, "include", "i", []string{}, "'[aaa,sss]'")
-	bucketCmd.PersistentFlags().StringArrayVarP(&exclude, "exclude", "e", []string{}, "'[aaa,sss]'")
-	bucketCmd.PersistentFlags().StringVarP(&timeBefore, "time-before", "b", "", "time before 2023-03-01 00:00:00")
-	bucketCmd.PersistentFlags().StringVarP(&timeAfter, "time-after", "a", "", "time after 1992-03-01 00:00:00")
+	bucketCmd.PersistentFlags().StringVarP(&include, "include", "i", "", "txt or txt,csv")
+	bucketCmd.PersistentFlags().StringVarP(&exclude, "exclude", "e", "", "txt or txt,csv")
+	bucketCmd.PersistentFlags().StringVarP(&timeBefore, "time-before", "b", "", "2023-03-01 00:00:00")
+	bucketCmd.PersistentFlags().StringVarP(&timeAfter, "time-after", "a", "", "1992-03-01 00:00:00")
 	bucketCmd.PersistentFlags().Int64VarP(&queue, "queue", "q", 0, "queue")
 
 	rmCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "dry run")
@@ -132,10 +132,10 @@ var lsCmd = &cobra.Command{
 
 var rmCmd = &cobra.Command{
 	Use:  "rm",
-	Long: "rm bucket or object with s3_url must start with s3://",
+	Long: "rm bucket or object with s3_url must start with s3://\nrm default use --queue 1000 reduce memory usage and loading time.",
 	Run: func(cmd *cobra.Command, args []string) {
 		input := model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit)
-		if debug == true {
+		if debug {
 			log.Default().WithLevel(log.DebugLevel).WithFilename("cbs.log").Init()
 		} else {
 			log.Default().WithLevel(log.InfoLevel).WithFilename("cbs.log").Init()
@@ -209,6 +209,8 @@ func deleteObject(bucketService model.BucketContract, bucketName, key string, dr
 	err := bucketService.RmObject(profile, bucketName, key)
 	if err != nil {
 		fmt.Printf("delete %s/%s failed: %s\n", bucketName, key, err.Error())
+		// TODO: remove panic for service
+		panic(err)
 	} else {
 		fmt.Printf("delete %s/%s success\n", bucketName, key)
 	}

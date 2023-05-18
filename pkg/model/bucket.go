@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	"github.com/patsnapops/noop/log"
@@ -15,13 +16,17 @@ type Input struct {
 	Limit      int64
 }
 
-func NewInput(recursive bool, include, exclude []string, timeBefore, timeAfter string, limit int64) Input {
+func NewInput(recursive bool, include, exclude string, timeBefore, timeAfter string, limit int64) Input {
 
 	input := Input{
 		Recursive: recursive,
-		Include:   include,
-		Exclude:   exclude,
 		Limit:     limit,
+	}
+	if include != "" {
+		input.Include = strings.Split(include, ",")
+	}
+	if exclude != "" {
+		input.Exclude = strings.Split(exclude, ",")
 	}
 	if timeBefore != "" {
 		timeB, err := time.Parse("2006-01-02 15:04:05", timeBefore)
