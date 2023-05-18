@@ -1,25 +1,45 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/patsnapops/noop/log"
+)
 
 type Input struct {
 	Recursive  bool
 	Include    []string
 	Exclude    []string
-	TimeBefore string // 2023-03-01 21:26:30
-	TimeAfter  string // 1992-03-01 21:26:30
+	TimeBefore *time.Time // 2023-03-01 21:26:30
+	TimeAfter  *time.Time // 1992-03-01 21:26:30
 	Limit      int64
 }
 
 func NewInput(recursive bool, include, exclude []string, timeBefore, timeAfter string, limit int64) Input {
-	return Input{
-		Recursive:  recursive,
-		Include:    include,
-		Exclude:    exclude,
-		TimeBefore: timeBefore,
-		TimeAfter:  timeAfter,
-		Limit:      limit,
+
+	input := Input{
+		Recursive: recursive,
+		Include:   include,
+		Exclude:   exclude,
+		Limit:     limit,
 	}
+	if timeBefore != "" {
+		timeB, err := time.Parse("2006-01-02 15:04:05", timeBefore)
+		if err != nil {
+			log.Errorf("timeBefore format error: %v", err)
+		} else {
+			input.TimeBefore = &timeB
+		}
+	}
+	if timeAfter != "" {
+		timeA, err := time.Parse("2006-01-02 15:04:05", timeAfter)
+		if err != nil {
+			log.Errorf("timeAfter format error: %v", err)
+		} else {
+			input.TimeAfter = &timeA
+		}
+	}
+	return input
 }
 
 type BucketContract interface {

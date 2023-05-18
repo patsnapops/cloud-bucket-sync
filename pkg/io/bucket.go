@@ -4,6 +4,7 @@ import (
 	"cbs/config"
 	"cbs/pkg/model"
 	"fmt"
+	"strings"
 
 	"github.com/alibabacloud-go/tea/tea"
 	"github.com/aws/aws-sdk-go/aws"
@@ -74,13 +75,16 @@ func (c bucketClient) ListObjects(profile, bucketName, prefix string, input mode
 				return dirs, objects, err
 			}
 			for _, content := range resp.Contents {
-				objects = append(objects, model.Object{
+				obj := model.Object{
 					Key:          *content.Key,
 					Size:         *content.Size,
 					ETag:         *content.ETag,
 					StorageClass: *content.StorageClass,
 					LastModified: *content.LastModified,
-				})
+				}
+				if c.listObjectsWithFilter(obj, input) {
+					objects = append(objects, obj)
+				}
 			}
 			for _, commonPrefix := range resp.CommonPrefixes {
 				dirs = append(dirs, *commonPrefix.Prefix)
@@ -96,6 +100,35 @@ func (c bucketClient) ListObjects(profile, bucketName, prefix string, input mode
 	}
 	return dirs, objects, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
 
+}
+
+// 过滤对象,符合条件返回true
+func (c bucketClient) listObjectsWithFilter(key model.Object, input model.Input) bool {
+	if len(input.Include) != 0 {
+		for _, include := range input.Include {
+			if !strings.Contains(key.Key, include) {
+				return false
+			}
+		}
+	}
+	if len(input.Exclude) != 0 {
+		for _, exclude := range input.Exclude {
+			if strings.Contains(key.Key, exclude) {
+				return false
+			}
+		}
+	}
+	if input.TimeAfter != nil {
+		if key.LastModified.Before(*input.TimeAfter) {
+			return false
+		}
+	}
+	if input.TimeBefore != nil {
+		if key.LastModified.After(*input.TimeBefore) {
+			return false
+		}
+	}
+	return true
 }
 
 func (c bucketClient) ListObjectsWithChan(profile, bucketName, prefix string, input model.Input, objectsChan chan model.ChanObject) {
@@ -123,16 +156,20 @@ func (c bucketClient) ListObjectsWithChan(profile, bucketName, prefix string, in
 			}
 			for _, content := range resp.Contents {
 				index++
-				objectsChan <- model.ChanObject{
-					Obj: &model.Object{
-						Key:          *content.Key,
-						Size:         *content.Size,
-						ETag:         *content.ETag,
-						StorageClass: *content.StorageClass,
-						LastModified: *content.LastModified,
-					},
-					Count: index,
+				obj := model.Object{
+					Key:          *content.Key,
+					Size:         *content.Size,
+					ETag:         *content.ETag,
+					StorageClass: *content.StorageClass,
+					LastModified: *content.LastModified,
 				}
+				if c.listObjectsWithFilter(obj, input) {
+					objectsChan <- model.ChanObject{
+						Obj:   &obj,
+						Count: index,
+					}
+				}
+
 			}
 			log.Debugf("index %d", index)
 

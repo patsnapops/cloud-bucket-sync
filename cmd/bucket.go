@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/olekukonko/tablewriter"
 	"github.com/patsnapops/noop/log"
 	"github.com/spf13/cobra"
@@ -65,12 +66,12 @@ var lsCmd = &cobra.Command{
 	Long: "ls bucket or object with s3_url must start with s3://",
 	Run: func(cmd *cobra.Command, args []string) {
 		input := model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit)
-		if debug == true {
+		if debug {
 			log.Default().WithLevel(log.DebugLevel).WithFilename("cbs.log").Init()
 		} else {
 			log.Default().WithLevel(log.InfoLevel).WithFilename("cbs.log").Init()
 		}
-
+		log.Debugf(tea.Prettify(input))
 		switch len(args) {
 		case 1:
 			cliConfig := config.LoadCliConfig(configPath)
@@ -216,8 +217,14 @@ func deleteObject(bucketService model.BucketContract, bucketName, key string, dr
 // turn s3://bucket/prefix to bucket and prefix
 func parseBucketAndPrefix(s3Path string) (bucket, prefix string) {
 	bucket = strings.TrimPrefix(s3Path, "s3://")
-	bucket = strings.Split(bucket, "/")[0]
-	prefix = strings.TrimPrefix(s3Path, "s3://"+bucket+"/")
+	bucketS := strings.Split(bucket, "/")
+	bucket = bucketS[0]
+	if len(bucketS) > 1 {
+		prefix = strings.Join(bucketS[1:], "/")
+	} else {
+		prefix = ""
+	}
+	log.Debugf("bucket: %s, prefix: %s", bucket, prefix)
 	return
 }
 

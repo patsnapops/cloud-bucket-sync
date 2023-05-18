@@ -6,7 +6,7 @@ services:
     hostname: 'cbs'
     environment:
       TZ: Asia/Shanghai
-      DEBUG: true
+      # DEBUG: true
     ports:
       - '8011:8080'
     volumes:
