@@ -2,6 +2,7 @@ package io
 
 import (
 	"cbs/pkg/model"
+	"time"
 
 	"github.com/alibabacloud-go/tea/tea"
 	"github.com/google/uuid"
@@ -39,27 +40,37 @@ func (c *managerClient) UpdateRecord(record *model.Record) error {
 	return c.db.Save(record).Error
 }
 
-func (c *managerClient) CreateRecord(record *model.Record) error {
-	return c.db.Create(record).Error
-}
-
-// func (c *managerClient) DeleteRecord(recordID string) error {
-// 	var record model.Record
-// 	return c.db.Model(&record).Where("id = ?", recordID).Update("is_deleted", true).Error
-// }
-
 func (c *managerClient) ListWorkers() ([]*model.Worker, error) {
 	var workers []*model.Worker
 	err := c.db.Model(model.Worker{}).Find(&workers).Error
 	return workers, err
 }
 
-func (c *managerClient) CreateWorker(worker *model.Worker) error {
-	return c.db.Create(worker).Error
+func (c *managerClient) QueryWorker(input model.WorkerInput) ([]*model.Worker, error) {
+	var workers []*model.Worker
+	log.Debugf(tea.Prettify(input))
+	sql := c.db.Model(&workers).Where(&model.Worker{
+		ID:     input.WorkerID,
+		Cloud:  input.Cloud,
+		Region: input.Region,
+	})
+	resL := sql.Find(&workers)
+	return workers, resL.Error
 }
 
-func (c *managerClient) UpdateWorker(worker *model.Worker) error {
-	return c.db.Save(worker).Error
+func (c *managerClient) CreateWorker(cloud, region string) (string, error) {
+	worker := model.Worker{
+		ID:     uuid.New().String(),
+		Cloud:  cloud,
+		Region: region,
+	}
+	return worker.ID, c.db.Model(worker).Create(worker).Error
+}
+
+// 只更新worker的hc时间
+func (c *managerClient) UpdateWorker(workerID string) error {
+	var worker model.Worker
+	return c.db.Model(&worker).Where("id = ?", workerID).Update("hc", time.Now()).Error
 }
 
 func (c *managerClient) DeleteWorker(workerID string) error {
@@ -85,8 +96,9 @@ func (c *managerClient) QueryTask(input model.TaskInput) ([]*model.Task, error) 
 	return tasks, resL.Error
 }
 
-func (c *managerClient) CreateTask(task *model.Task) error {
-	return c.db.Create(task).Error
+func (c *managerClient) CreateTask(task *model.Task) (string, error) {
+	task.ID = uuid.New().String()
+	return task.ID, c.db.Create(task).Error
 }
 
 func (c *managerClient) UpdateTask(task *model.Task) error {

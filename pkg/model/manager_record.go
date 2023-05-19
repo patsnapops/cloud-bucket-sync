@@ -9,7 +9,6 @@ func (s Status) String() string {
 }
 
 type Mode string
-type TaskAction string
 
 const (
 	// pending, waiting, running, success, failed, "cancel", notallsuccess

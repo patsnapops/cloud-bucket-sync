@@ -4,11 +4,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type Worker struct {
-	gorm.Model
 	ID        string    `json:"id" gorm:"primary_key"`
 	CreatedAt time.Time `json:"created_at" gorm:"column:created_at"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"column:updated_at"`
@@ -55,4 +53,10 @@ type WorkerResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Hc        time.Time `json:"hc"`
+}
+
+type WorkerInput struct {
+	WorkerID string `json:"worker_id"`
+	Cloud    string `json:"cloud"`
+	Region   string `json:"region"`
 }
