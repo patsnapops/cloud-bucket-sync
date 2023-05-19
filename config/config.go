@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-type ApiConfig struct {
+type ManagerConfig struct {
 	PG PostgresConfig `mapstructure:"pg"`
 }
 type PostgresConfig struct {
@@ -32,9 +32,13 @@ func (c *PostgresConfig) GetUrl() string {
 }
 
 type CliConfig struct {
-	Host     string    `mapstructure:"host"`
-	Cli      string    `mapstructure:"cli"`
-	Profiles []Profile `mapstructure:"profiles"`
+	Manager  CliManager `mapstructure:"manager"`
+	Profiles []Profile  `mapstructure:"profiles"`
+}
+
+type CliManager struct {
+	Endpoint   string `mapstructure:"endpoint"`
+	ApiVersion string `mapstructure:"api_version"`
 }
 
 func GetProfile(profiles []Profile, name string) Profile {
@@ -71,12 +75,12 @@ func loadConfig(configFile string) error {
 	return nil
 }
 
-func LoadApiConfig(configDir string) *ApiConfig {
+func LoadManagerConfig(configDir string) *ManagerConfig {
 	if !strings.HasSuffix(configDir, "/") {
 		configDir = configDir + "/"
 	}
 	log.Debugf("config dir %s", configDir)
-	apiConfig := &ApiConfig{}
+	apiConfig := &ManagerConfig{}
 	err := loadConfig(configDir + "manager.yaml")
 	if err != nil {
 		log.Fatalf(err.Error())

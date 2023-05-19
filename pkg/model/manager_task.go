@@ -27,8 +27,23 @@ type Task struct {
 	Meta          string    `json:"meta" gorm:"type:text" example:"Expires:2022-10-12T00:00:00.000Z#Cache-Control:no-cache#Content-Encoding:gzip#x-cos-meta-x:x"` // 任务元信息
 }
 
+type TaskResponse struct {
+	Task
+	Records []Record `json:"records"`
+}
+
 type TaskInput struct {
 	ID     string `json:"id" gorm:"primary_key,unique_index,not null"`
 	Name   string `json:"name" gorm:"not null" binding:"required"` // 任务名称
 	Worker string `json:"worker" gorm:"not null;default:''"`       // worker节点
+}
+
+// args to ObjectFilter
+func (t Task) ToFilter() *ObjectFilter {
+	return &ObjectFilter{
+		Include:    t.Include,
+		Exclude:    t.Exclude,
+		TimeBefore: t.TimeBefore,
+		TimeAfter:  t.TimeAfter,
+	}
 }

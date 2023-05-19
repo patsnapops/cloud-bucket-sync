@@ -2,10 +2,7 @@ package cmd
 
 import (
 	"bufio"
-	"cbs/config"
-	cbsIo "cbs/pkg/io"
 	"cbs/pkg/model"
-	"cbs/pkg/service"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -28,8 +25,6 @@ var (
 	exclude    string
 	timeBefore string
 	timeAfter  string
-	configPath string
-	debug      bool
 	queue      int64
 	threadNum  int64
 )
@@ -78,17 +73,11 @@ var lsCmd = &cobra.Command{
 	Use:  "ls",
 	Long: "ls bucket or object with s3_url must start with s3://",
 	Run: func(cmd *cobra.Command, args []string) {
-		if debug {
-			log.Default().WithLevel(log.DebugLevel).WithFilename("cbs.log").Init()
-		} else {
-			log.Default().WithLevel(log.InfoLevel).WithFilename("cbs.log").Init()
-		}
+		initApp()
 		input := model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit)
 		log.Debugf(tea.Prettify(input))
 		switch len(args) {
 		case 1:
-			cliConfig := config.LoadCliConfig(configPath)
-			bucketService := service.NewBucketService(cbsIo.NewBucketClient(cliConfig.Profiles))
 			bucketName, prefix := parseBucketAndPrefix(args[0])
 			timeStart := time.Now()
 			if queue != 0 {
@@ -96,7 +85,7 @@ var lsCmd = &cobra.Command{
 				// 放弃table的展示，因为他不能体现chan的特性，会等到所有结果出来一起打印。
 				var totalSize int64
 				var totalObjects int64
-				go bucketService.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
+				go bucketC.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
 				for objectChan := range objectsChan {
 					if objectChan.Error != nil {
 						panic(objectChan.Error)
@@ -117,7 +106,7 @@ var lsCmd = &cobra.Command{
 				}
 				fmt.Printf("\nTotal: %d, Size: %s, Cost: %s\n", totalObjects, FormatSize(totalSize), time.Since(timeStart))
 			} else {
-				dirs, objects, err := bucketService.ListObjects(profile, bucketName, prefix, input)
+				dirs, objects, err := bucketC.ListObjects(profile, bucketName, prefix, input)
 				if err != nil {
 					panic(err)
 				}
@@ -147,11 +136,7 @@ var rmCmd = &cobra.Command{
 	Use:  "rm",
 	Long: "rm bucket or object with s3_url must start with s3://\nrm default use --queue 1000 reduce memory usage and loading time.",
 	Run: func(cmd *cobra.Command, args []string) {
-		if debug {
-			log.Default().WithLevel(log.DebugLevel).WithFilename("cbs.log").Init()
-		} else {
-			log.Default().WithLevel(log.InfoLevel).WithFilename("cbs.log").Init()
-		}
+		initApp()
 		// check 冲突
 		log.Debugf("file: %s, dir: %s, timeAfter: %s, timeBefore: %s", file, dir, timeAfter, timeBefore)
 		if (file != "" || dir != "") && (timeAfter != "" || timeBefore != "") {
@@ -167,8 +152,6 @@ var rmCmd = &cobra.Command{
 		switch len(args) {
 		case 1:
 			timeStart := time.Now()
-			cliConfig := config.LoadCliConfig(configPath)
-			bucketService := service.NewBucketService(cbsIo.NewBucketClient(cliConfig.Profiles))
 			bucketName, prefix := parseBucketAndPrefix(args[0])
 			// 默认使用chan方式删除
 			if queue == 0 {
@@ -186,7 +169,7 @@ var rmCmd = &cobra.Command{
 				if dir != "" {
 					go readObjectsFromDir(dir, input, objectsChan)
 				} else {
-					go bucketService.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
+					go bucketC.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
 				}
 			}
 			// 实现多线程删除，当force为true时，不需要等待确认
@@ -207,7 +190,7 @@ var rmCmd = &cobra.Command{
 						break
 					}
 					deleteChan <- 1
-					go deleteObject(bucketService, bucketName, objectChan.Obj.Key, dryRun, force, deleteChan, f)
+					go deleteObject(bucketC, bucketName, objectChan.Obj.Key, dryRun, force, deleteChan, f)
 				}
 				totalObjects++
 			}
@@ -225,7 +208,7 @@ var rmCmd = &cobra.Command{
 	},
 }
 
-func deleteObject(bucketService model.BucketContract, bucketName, key string, dryRun bool, force bool, deleteChan chan int, f *os.File) {
+func deleteObject(bucketC model.BucketContract, bucketName, key string, dryRun bool, force bool, deleteChan chan int, f *os.File) {
 	defer func() {
 		<-deleteChan
 	}()
@@ -242,7 +225,7 @@ func deleteObject(bucketService model.BucketContract, bucketName, key string, dr
 			return
 		}
 	}
-	err := bucketService.RmObject(profile, bucketName, key)
+	err := bucketC.RmObject(profile, bucketName, key)
 	if err != nil {
 		fmt.Printf("delete %s/%s failed: %s\n", bucketName, key, err.Error())
 		f.WriteString(key + " " + err.Error() + "\n")

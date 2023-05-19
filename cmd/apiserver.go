@@ -28,7 +28,7 @@ func init() {
 	apiServerCmd.AddCommand(startCmd)
 }
 
-func initDB(apiConfig config.ApiConfig) *gorm.DB {
+func initDB(apiConfig config.ManagerConfig) *gorm.DB {
 	dbConfig := &gorm.Config{}
 	if !debug {
 		dbConfig = &gorm.Config{
@@ -49,14 +49,9 @@ var startCmd = &cobra.Command{
 	Use:  "start",
 	Long: "start manager server, default port is 8080",
 	Run: func(cmd *cobra.Command, args []string) {
-		if debug {
-			log.Default().WithLevel(log.DebugLevel).WithFilename("cbs.log").Init()
-		} else {
-			log.Default().WithLevel(log.InfoLevel).WithFilename("cbs.log").Init()
-		}
-		apiConfig := config.LoadApiConfig(configPath)
-		log.Debugf(tea.Prettify(apiConfig))
-		managerClient := io.NewManagerClient(initDB(*apiConfig))
+		initApp()
+		log.Debugf(tea.Prettify(managerConfig))
+		managerClient := io.NewManagerClient(initDB(*managerConfig))
 		manager := service.NewManagerService(managerClient)
 		c := cron.New()
 		c.AddFunc("*/10 * * * * *", func() {

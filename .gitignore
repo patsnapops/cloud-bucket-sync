@@ -5,3 +5,4 @@ config/manager.yaml
 .gitignore
 config/worker.yaml
 tests/
+docs/cbs-bucket.md

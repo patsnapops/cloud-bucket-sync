@@ -32,7 +32,6 @@ func NewBucketClient(config []config.Profile) model.BucketIo {
 func newSession(configProfiles []config.Profile) (map[string]*session.Session, error) {
 	sessions := make(map[string]*session.Session)
 	for _, param := range configProfiles {
-		log.Debugf(tea.Prettify(param))
 		s3_conf := &aws.Config{
 			Credentials: credentials.NewStaticCredentials(param.AK, param.SK, ""),
 			Region:      aws.String(param.Region),
