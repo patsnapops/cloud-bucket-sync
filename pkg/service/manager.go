@@ -17,7 +17,7 @@ func NewManagerService(client model.ManagerIo) model.ManagerContract {
 
 func (s *ManagerService) CheckWorker() {
 	checkMap := make(map[string]string) // 用于记录已经修复过的任务,保证不会重复修复
-	workers, err := s.Client.ListWorkers()
+	workers, err := s.Client.QueryWorker(model.WorkerInput{})
 	if err != nil {
 		log.Panicf("list workers failed, err: %v", err)
 	}

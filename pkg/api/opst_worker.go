@@ -11,11 +11,21 @@ import (
 // @Tags opst/worker
 // @Accept  json
 // @Produce  json
+// @param cloud query string false "cloud"
+// @param region query string false "region"
+// @param worker_id query string false "worker id"
 // @Success 200 {object} []model.WorkerResponse
 // @Failure 500 {object} string
 // @Router /v2023-03/opst/worker [get]
 func GetWorkerList(c *gin.Context) {
-	resp, err := managerIo.ListWorkers()
+	cloud := c.Query("cloud")
+	region := c.Query("region")
+	workerID := c.Query("worker_id")
+	resp, err := managerIo.QueryWorker(model.WorkerInput{
+		Cloud:    cloud,
+		Region:   region,
+		WorkerID: workerID,
+	})
 	if err != nil {
 		c.JSON(500, err.Error())
 		return

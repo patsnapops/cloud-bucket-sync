@@ -12,7 +12,6 @@ type ManagerIo interface {
 	UpdateRecord(record *Record) error
 	// DeleteRecord(recordID string) error // 不需要删除
 
-	ListWorkers() ([]*Worker, error)
 	QueryWorker(input WorkerInput) ([]*Worker, error)
 	CreateWorker(cloud, region string) (string, error)
 	UpdateWorker(string) error

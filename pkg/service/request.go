@@ -140,6 +140,30 @@ func (r *RequestService) RecordQuery(input model.RecordInput) ([]model.Record, e
 	return records, nil
 }
 
+func (r *RequestService) WorkerQuery(input model.WorkerInput) ([]model.Worker, error) {
+	var workers []model.Worker
+	data, err := doRequest(r.Url+"/worker"+input.ToQuery(), "get", nil)
+	if err != nil {
+		return workers, err
+	}
+	err = json.Unmarshal(data, &workers)
+	if err != nil {
+		return workers, err
+	}
+	if len(workers) == 0 {
+		return workers, fmt.Errorf("worker not found")
+	}
+	return workers, nil
+}
+
+func (r *RequestService) WorkerHcUpdate(workerID string) error {
+	_, err := doRequest(r.Url+"/worker/"+workerID, "put", nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func doRequest(url string, method string, param req.Param) ([]byte, error) {
 	header := req.Header{
 		"Accept":       "application/json",

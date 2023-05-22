@@ -9,4 +9,7 @@ type RequestContract interface {
 	RecordUpdateStatus(string, Status) error
 	RecordUpdate(*Record) error
 	RecordQuery(RecordInput) ([]Record, error)
+
+	WorkerQuery(WorkerInput) ([]Worker, error)
+	WorkerHcUpdate(workerID string) error
 }

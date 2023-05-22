@@ -60,3 +60,29 @@ type WorkerInput struct {
 	Cloud    string `json:"cloud"`
 	Region   string `json:"region"`
 }
+
+func (w *WorkerInput) ToQuery() string {
+	var query []string
+	if w.Cloud != "" {
+		query = append(query, "cloud="+w.Cloud)
+	}
+	if w.Region != "" {
+		query = append(query, "region="+w.Region)
+	}
+	if w.WorkerID != "" {
+		query = append(query, "id="+w.WorkerID)
+	}
+	return joinQuery(query)
+}
+
+func joinQuery(query []string) string {
+	if len(query) == 0 {
+		return ""
+	} else {
+		q := "?"
+		for _, v := range query {
+			q += v + "&"
+		}
+		return q[:len(q)-1]
+	}
+}
