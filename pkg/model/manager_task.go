@@ -27,9 +27,8 @@ type Task struct {
 	Meta          string    `json:"meta" gorm:"type:text" example:"Expires:2022-10-12T00:00:00.000Z#Cache-Control:no-cache#Content-Encoding:gzip#x-cos-meta-x:x"` // 任务元信息
 }
 
-type TaskResponse struct {
-	Task
-	Records []Record `json:"records"`
+func (Task) TableName() string {
+	return "manager_task"
 }
 
 type TaskInput struct {

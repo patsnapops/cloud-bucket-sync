@@ -9,8 +9,6 @@ import (
 
 	"github.com/patsnapops/noop/log"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -33,6 +31,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "enable debug mode")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "~/.cbs/", "config file dir,default is ~/.cbs/")
 	rootCmd.PersistentFlags().StringVarP(&logPath, "log", "", "./cbs.log", "log file dir,default is ./cbs.log")
+	rootCmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "dry run")
 }
 
 var (
@@ -58,11 +57,7 @@ func initApp() {
 		logLevel = log.DebugLevel
 	}
 	// init log
-	log.Default().WithLevel(logLevel).WithFilename(logPath).WithFields([]zap.Field{{
-		Key:    "LocalTime",
-		Type:   zapcore.StringType,
-		String: time.Now().In(time.Local).Format("2006-01-02 15:04:05.000"),
-	}}).Init()
+	log.Default().WithLevel(logLevel).WithFilename(logPath).WithHumanTime(time.Local).Init()
 	// init config
 	cliConfig = config.LoadCliConfig(configPath)
 	managerConfig = config.LoadManagerConfig(configPath)

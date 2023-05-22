@@ -49,11 +49,16 @@ type Record struct {
 }
 
 func (Record) TableName() string {
-	return "opst_task_exec_record"
+	return "manager_exec_record"
 }
 
 type RecordInput struct {
 	TaskID   string `json:"task_id"`
 	RecordID string `json:"record_id"`
 	Status   Status `json:"status"`
+}
+
+type TaskWithRecord struct {
+	Task
+	Record []Record `json:"record"`
 }

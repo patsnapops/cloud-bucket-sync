@@ -4,14 +4,20 @@ import (
 	"cbs/pkg/model"
 
 	"github.com/gin-gonic/gin"
+	"github.com/patsnapops/noop/log"
 )
 
 var (
 	managerIo model.ManagerIo
 )
 
-func ApplyRoutes(routerGroup *gin.RouterGroup, managerIo model.ManagerIo) {
-	managerIo = managerIo
+func ApplyRoutes(routerGroup *gin.RouterGroup, managerio model.ManagerIo) {
+	// 注册managerio
+	managerIo = managerio
+	if managerio == nil {
+		log.Panic("managerio is nil")
+	}
+	log.Debugf("managerIo: %v", managerIo)
 	// worker
 	w := routerGroup.Group("/worker")
 	{

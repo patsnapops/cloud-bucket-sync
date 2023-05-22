@@ -28,22 +28,25 @@ func NewRequestService(config config.CliManager) model.RequestContract {
 }
 
 // get task
-func (r *RequestService) TaskGet(taskID string) (*model.TaskResponse, error) {
-	task := &model.TaskResponse{}
+func (r *RequestService) TaskGet(taskID string) ([]*model.Task, error) {
+	task := []*model.Task{}
 	data, err := doRequest(r.Url+"/task/"+taskID, "get", nil)
 	if err != nil {
 		return nil, err
 	}
-	json.Unmarshal(data, &task)
-	if task.ID == "" {
+	err = json.Unmarshal(data, &task)
+	if err != nil {
+		return nil, err
+	}
+	if len(task) == 0 {
 		return nil, fmt.Errorf("task not found")
 	}
 	return task, nil
 }
 
 // list task
-func (r *RequestService) TaskList() ([]model.TaskResponse, error) {
-	var tasks []model.TaskResponse
+func (r *RequestService) TaskList() ([]model.Task, error) {
+	var tasks []model.Task
 	data, err := doRequest(r.Url+"/task", "get", nil)
 	if err != nil {
 		return tasks, err
@@ -162,6 +165,8 @@ func doRequest(url string, method string, param req.Param) ([]byte, error) {
 	switch r.Response().StatusCode {
 	case 400:
 		return r.Bytes(), fmt.Errorf("pop返回错误信息 %s", string(r.Bytes()))
+	// case 404:
+	// 	return r.Bytes(), fmt.Errorf("pop返回错误信息 %s", string(r.Bytes()))
 	default:
 		return r.Bytes(), err
 	}

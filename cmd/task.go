@@ -5,10 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/alibabacloud-go/tea/tea"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
+)
+
+var (
+	taskFile string
 )
 
 func init() {
@@ -17,7 +22,7 @@ func init() {
 	taskCmd.AddCommand(applyCmd)
 	taskCmd.AddCommand(showCmd)
 	taskCmd.AddCommand(execCmd)
-
+	taskCmd.PersistentFlags().StringVarP(&taskFile, "file", "f", "", "task file path, default is ./task.json")
 }
 
 var taskCmd = &cobra.Command{
@@ -61,11 +66,17 @@ var showCmd = &cobra.Command{
 				panic(err)
 			}
 			// only show last 10 records
-			records := task.Records
+			records, err := requestC.RecordQuery(model.RecordInput{
+				TaskID: taskID,
+			})
+			if err != nil {
+				records = []model.Record{}
+			}
 			if len(records) > 5 {
-				task.Records = task.Records[len(task.Records)-5:]
+				records = records[len(records)-5:]
 			}
 			fmt.Println(tea.Prettify(task))
+			fmt.Println(tea.Prettify(records))
 			if len(records) > 5 {
 				fmt.Println("only show last 5 record by create_at...")
 			}
@@ -103,14 +114,20 @@ func showTask(cmd *cobra.Command, args []string) {
 		taskName := t.Name
 		// 处理换行
 		// taskName = strings.Replace(taskName, " ", "-", -1)
-		fmt.Println(tea.Prettify(t))
+		// fmt.Println(tea.Prettify(t))
 		recordStatus := ""
 		running := 0
 		success := 0
 		failed := 0
 		cancel := 0
 		pending := 0
-		for _, record := range t.Records {
+		records, err := requestC.RecordQuery(model.RecordInput{
+			TaskID: t.ID,
+		})
+		if err != nil {
+			records = []model.Record{}
+		}
+		for _, record := range records {
 			switch record.Status {
 			case "running":
 				running++
@@ -125,20 +142,19 @@ func showTask(cmd *cobra.Command, args []string) {
 			}
 		}
 		recordStatus = fmt.Sprintf("pending:%d,running:%d,success:%d,failed:%d,cancel:%d", pending, running, success, failed, cancel)
-		table.Append([]string{t.ID, taskName, string(t.Worker), string(t.SyncMode), t.Submitter, recordStatus})
+		table.Append([]string{t.ID, strings.ReplaceAll(taskName, " ", "/"), string(t.Worker), string(t.SyncMode), t.Submitter, recordStatus})
 	}
 	table.SetFooter([]string{"", "", "", "", "count", tea.ToString(len(tasks))})
 	table.Render()
 }
 
 func applyTask(cmd *cobra.Command, args []string) {
-	file, _ := cmd.Flags().GetString("file")
-	if file == "" {
+	if taskFile == "" {
 		panic("file is empty")
 	}
 	// load json file to struct
 	// var file = "task.json"
-	data, err := os.ReadFile(file)
+	data, err := os.ReadFile(taskFile)
 	if err != nil {
 		panic(err)
 	}
@@ -149,8 +165,10 @@ func applyTask(cmd *cobra.Command, args []string) {
 	}
 	// apply task
 	for _, taskJson := range tasksJson {
-		// fmt.Println(tea.Prettify(taskJson))
-		// continue
+		if dryRun {
+			fmt.Println(tea.Prettify(taskJson) + "		dry run, not apply task.")
+			continue
+		}
 		taskID, err := requestC.TaskApply(taskJson)
 		if err != nil {
 			panic(err)

@@ -29,7 +29,7 @@ func (w *Worker) ToResponse() WorkerResponse {
 }
 
 func (Worker) TableName() string {
-	return "opst_worker"
+	return "worker"
 }
 
 type WorkerRequest struct {

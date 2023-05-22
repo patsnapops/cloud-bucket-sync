@@ -11,7 +11,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/patsnapops/ginx v0.1.3
 	github.com/patsnapops/http-headers v0.0.0-20230215051743-3156c9c280e2
-	github.com/patsnapops/noop v0.3.3
+	github.com/patsnapops/noop v0.4.0
 	github.com/robfig/cron v1.2.0
 	github.com/spf13/cast v1.5.0
 	github.com/spf13/cobra v1.7.0

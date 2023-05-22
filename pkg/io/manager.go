@@ -79,6 +79,7 @@ func (c *managerClient) DeleteWorker(workerID string) error {
 }
 
 func (c *managerClient) ListTasks() ([]*model.Task, error) {
+	log.Debugf("list tasks")
 	var tasks []*model.Task
 	err := c.db.Find(&tasks).Error
 	return tasks, err

@@ -49,7 +49,6 @@ func init() {
 	bucketCmd.PersistentFlags().StringVarP(&timeAfter, "time-after", "a", "", "1992-03-01 00:00:00")
 	bucketCmd.PersistentFlags().Int64VarP(&queue, "queue", "q", 0, "queue")
 
-	rmCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "dry run")
 	rmCmd.Flags().BoolVarP(&force, "force", "f", false, "force")
 	rmCmd.Flags().Int64VarP(&threadNum, "thread-num", "t", 1, "thread num")
 	// 支持--file参数，可以从文件中读取bucket对象
