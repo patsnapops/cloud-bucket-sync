@@ -1,0 +1,18 @@
+[
+    {
+        "name": "这是个有问题的定时任务",
+        "corn": "0 0 0 * ?",
+        "exclude": "",
+        "include": "",
+        "is_overwrite": false,
+        "source_profile": "cn9554",
+        "source_url": "s3://ops-9554/s3-proxy-test/",
+        "submitter": "zhoushoujian",
+        "sync_mode": "syncOnce",
+        "target_profile": "cn9554",
+        "target_url": "s3://ops-9554/zhoushoujiantest/popapi/",
+        "time_after": "",
+        "time_before": "",
+        "storage_class":""
+    }
+]

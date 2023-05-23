@@ -6,16 +6,39 @@ import (
 	"strings"
 
 	"github.com/patsnapops/noop/log"
+	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 )
 
-type ApiConfig struct {
-	Host string `mapstructure:"host"`
+type ManagerConfig struct {
+	PG PostgresConfig `mapstructure:"pg"`
 }
+type PostgresConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	Database string `mapstructure:"database"`
+}
+
+func (c *PostgresConfig) GetUrl() string {
+	return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Shanghai",
+		c.Host,
+		c.User,
+		c.Password,
+		c.Database,
+		cast.ToString(c.Port),
+	)
+}
+
 type CliConfig struct {
-	Host     string    `mapstructure:"host"`
-	Cli      string    `mapstructure:"cli"`
-	Profiles []Profile `mapstructure:"profiles"`
+	Manager  CliManager `mapstructure:"manager"`
+	Profiles []Profile  `mapstructure:"profiles"`
+}
+
+type CliManager struct {
+	Endpoint   string `mapstructure:"endpoint"`
+	ApiVersion string `mapstructure:"api_version"`
 }
 
 func GetProfile(profiles []Profile, name string) Profile {
@@ -52,13 +75,13 @@ func loadConfig(configFile string) error {
 	return nil
 }
 
-func LoadApiConfig(configDir string) *ApiConfig {
+func LoadManagerConfig(configDir string) *ManagerConfig {
 	if !strings.HasSuffix(configDir, "/") {
 		configDir = configDir + "/"
 	}
 	log.Debugf("config dir %s", configDir)
-	apiConfig := &ApiConfig{}
-	err := loadConfig(configDir + "api.yaml")
+	apiConfig := &ManagerConfig{}
+	err := loadConfig(configDir + "manager.yaml")
 	if err != nil {
 		log.Fatalf(err.Error())
 	}

@@ -1,0 +1,13 @@
+version: '2.17'
+services:
+  cbs_manager:
+    image: 'cbs:latest'
+    restart: always
+    hostname: 'cbs'
+    environment:
+      TZ: Asia/Shanghai
+      # DEBUG: true
+    ports:
+      - '8011:8080'
+    volumes:
+      - './config/:/root/.cbs/'

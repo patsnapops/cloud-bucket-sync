@@ -1,0 +1,557 @@
+definitions:
+  api.ChangeRecordStatusRequest:
+    properties:
+      operator:
+        type: string
+      record_id:
+        type: string
+      status:
+        type: string
+    type: object
+  model.Record:
+    properties:
+      Progress:
+        description: 进度 0-100
+        type: integer
+      cost_time:
+        description: 耗时 单位 s
+        type: integer
+      created_at:
+        type: string
+      error_http_url:
+        description: 错误文件列表的http下载地址
+        type: string
+      error_s3_url:
+        description: 错误文件列表的s3地址
+        type: string
+      failed_files:
+        description: 失败文件数
+        type: integer
+      id:
+        type: string
+      info:
+        description: 任务信息
+        type: string
+      is_confirm:
+        description: 是否需要确认
+        type: boolean
+      operator:
+        description: 操作人
+        type: string
+      running_mode:
+        description: 运行模式, syncOnce,KeepSync
+        type: string
+      status:
+        description: 任务状态 请走action接口去修改。
+        type: string
+      success_files:
+        description: 成功文件数
+        type: integer
+      success_size:
+        description: 走公网消耗流量的大小 单位 B
+        type: integer
+      task_id:
+        description: 任务ID
+        type: string
+      total_files:
+        description: 总文件数
+        type: integer
+      total_size:
+        description: 总大小 单位 B
+        type: integer
+      updated_at:
+        type: string
+      worker_id:
+        description: 执行任务的workerID
+        type: string
+    type: object
+  model.Task:
+    properties:
+      corn:
+        description: 格式为 分、时、日、月、周                                                      //
+          cron表达式 用于定时任务 ’分 时 日 月 周‘
+        example: 0 */8 * * 1,2,3,4,5
+        type: string
+      created_at:
+        type: string
+      exclude:
+        description: 排除
+        type: string
+      id:
+        type: string
+      include:
+        description: 包含
+        type: string
+      is_deleted:
+        type: boolean
+      is_overwrite:
+        description: 是否覆盖 默认覆盖 true
+        type: boolean
+      is_silence:
+        description: 是否静默 默认false 静默不发送通知
+        example: false
+        type: boolean
+      keys_url:
+        description: S3URL s3://bucket/key 支持提供文件列表去同步
+        example: s3://bucket/key
+        type: string
+      meta:
+        description: 任务元信息
+        example: Expires:2022-10-12T00:00:00.000Z#Cache-Control:no-cache#Content-Encoding:gzip#x-cos-meta-x:x
+        type: string
+      name:
+        description: 任务名称
+        type: string
+      source_profile:
+        description: 源Profile配置 可选 cn9554,cn3977,cn0536,us7478,us0066,us1549,tx-cn,tx-us
+        example: cn3977
+        type: string
+      source_url:
+        description: S3URL s3://sourceBucket/key 支持文件和目录结尾
+        type: string
+      storage_class:
+        description: 存储类型 STANDARD,STANDARD_IA,ONEZONE_IA,INTELLIGENT_TIERING,REDUCED_REDUNDANCY,STANDARD_IA,ONEZONE_IA,INTELLIGENT_TIERING,REDUCED_REDUNDANCY
+        type: string
+      submitter:
+        description: 提交人
+        type: string
+      sync_mode:
+        description: 运行模式, syncOnce,KeepSync
+        example: syncOnce
+        type: string
+      target_profile:
+        description: 目标Profile配置 可选 cn9554,cn3977,cn0536,us7478,us0066,us1549,tx-cn,tx-us
+        example: us7478
+        type: string
+      target_url:
+        description: S3URL s3://destBucket/dir/ 不支持文件结尾 没有/的目录看作目录处理
+        type: string
+      time_after:
+        description: 在某个时间之后 UTC时间格式：“1992-03-01 21:26:30”
+        example: "1992-03-01 21:26:30"
+        type: string
+      time_before:
+        description: 在某个时间之前 UTC时间格式：“1992-03-01 21:26:30”
+        example: "1992-03-01 21:26:30"
+        type: string
+      updated_at:
+        type: string
+      worker:
+        description: worker节点
+        type: string
+    required:
+    - name
+    - source_profile
+    - source_url
+    - submitter
+    - sync_mode
+    - target_profile
+    - target_url
+    type: object
+  model.TaskExecInput:
+    properties:
+      operator:
+        type: string
+      sync_mode:
+        description: 执行模式，支持修改同步模式。keepSync（实时同步） syncOnce（一次同步）
+        type: string
+      task_id:
+        type: string
+    type: object
+  model.WorkerRequest:
+    properties:
+      cloud:
+        type: string
+      region:
+        type: string
+    type: object
+  model.WorkerResponse:
+    properties:
+      cloud:
+        type: string
+      created_at:
+        type: string
+      hc:
+        type: string
+      id:
+        type: string
+      region:
+        type: string
+      updated_at:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    name: Patsnap DevOps Team
+  description: Patsnap OPS Platform API spec.
+  termsOfService: http://swagger.io/terms/
+  title: cbs manager API
+  version: v1
+paths:
+  /api/v1/execute:
+    post:
+      consumes:
+      - application/json
+      description: execute task
+      parameters:
+      - description: task execute
+        in: body
+        name: action
+        required: true
+        schema:
+          $ref: '#/definitions/model.TaskExecInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: execute task
+      tags:
+      - task
+  /api/v1/record:
+    get:
+      consumes:
+      - application/json
+      description: get task record list
+      parameters:
+      - description: task id
+        in: query
+        name: task_id
+        type: string
+      - description: status
+        in: query
+        name: status
+        type: string
+      - description: record id
+        in: query
+        name: record_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Record'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: get task record list
+      tags:
+      - record
+  /api/v1/record/{id}:
+    put:
+      consumes:
+      - application/json
+      description: update task record;不支持status的修改，修改status需要调用接口 action接口
+      parameters:
+      - description: task id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: task record
+        in: body
+        name: record
+        required: true
+        schema:
+          $ref: '#/definitions/model.Record'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: update task record
+      tags:
+      - record
+  /api/v1/status:
+    post:
+      consumes:
+      - application/json
+      description: only this api can change record status.
+      parameters:
+      - description: record chang
+        in: body
+        name: action
+        required: true
+        schema:
+          $ref: '#/definitions/api.ChangeRecordStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: chang record status
+      tags:
+      - record
+  /api/v1/task:
+    get:
+      consumes:
+      - application/json
+      description: get all task list
+      parameters:
+      - description: task id
+        in: query
+        name: id
+        type: string
+      - description: task name
+        in: query
+        name: name
+        type: string
+      - description: worker_tag
+        in: query
+        name: worker_tag
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Task'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: get task list
+      tags:
+      - task
+    post:
+      consumes:
+      - application/json
+      description: create task, sourceurl 和 targeturl 支持目录，targeturl 不支持文件，如果写文件默认当作dir处理。
+      parameters:
+      - description: task
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/model.Task'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: create task
+      tags:
+      - task
+  /api/v1/task/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: delete task
+      parameters:
+      - description: task id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: delete task
+      tags:
+      - task
+    get:
+      consumes:
+      - application/json
+      description: get task detail
+      parameters:
+      - description: task id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Task'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: get task detail
+      tags:
+      - task
+    put:
+      consumes:
+      - application/json
+      description: update task
+      parameters:
+      - description: task id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: task
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/model.Task'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: update task
+      tags:
+      - task
+  /api/v1/worker:
+    get:
+      consumes:
+      - application/json
+      description: get all worker list
+      parameters:
+      - description: cloud
+        in: query
+        name: cloud
+        type: string
+      - description: region
+        in: query
+        name: region
+        type: string
+      - description: worker id
+        in: query
+        name: worker_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.WorkerResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: get worker list
+      tags:
+      - worker
+    post:
+      consumes:
+      - application/json
+      description: 带上cloud region 注册worker
+      parameters:
+      - description: worker
+        in: body
+        name: worker
+        required: true
+        schema:
+          $ref: '#/definitions/model.WorkerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.WorkerResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: create worker
+      tags:
+      - worker
+  /api/v1/worker/{id}:
+    get:
+      consumes:
+      - application/json
+      description: get worker detail
+      parameters:
+      - description: worker id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.WorkerResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: get worker detail
+      tags:
+      - worker
+    put:
+      consumes:
+      - application/json
+      description: 只用来更新worker的hc状态
+      parameters:
+      - description: worker id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.WorkerResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: update worker
+      tags:
+      - worker
+swagger: "2.0"

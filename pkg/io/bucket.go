@@ -32,7 +32,6 @@ func NewBucketClient(config []config.Profile) model.BucketIo {
 func newSession(configProfiles []config.Profile) (map[string]*session.Session, error) {
 	sessions := make(map[string]*session.Session)
 	for _, param := range configProfiles {
-		log.Debugf(tea.Prettify(param))
 		s3_conf := &aws.Config{
 			Credentials: credentials.NewStaticCredentials(param.AK, param.SK, ""),
 			Region:      aws.String(param.Region),
@@ -74,13 +73,16 @@ func (c bucketClient) ListObjects(profile, bucketName, prefix string, input mode
 				return dirs, objects, err
 			}
 			for _, content := range resp.Contents {
-				objects = append(objects, model.Object{
+				obj := model.Object{
 					Key:          *content.Key,
 					Size:         *content.Size,
 					ETag:         *content.ETag,
 					StorageClass: *content.StorageClass,
 					LastModified: *content.LastModified,
-				})
+				}
+				if model.ListObjectsWithFilter(obj, input) {
+					objects = append(objects, obj)
+				}
 			}
 			for _, commonPrefix := range resp.CommonPrefixes {
 				dirs = append(dirs, *commonPrefix.Prefix)
@@ -123,24 +125,26 @@ func (c bucketClient) ListObjectsWithChan(profile, bucketName, prefix string, in
 			}
 			for _, content := range resp.Contents {
 				index++
-				objectsChan <- model.ChanObject{
-					Obj: &model.Object{
-						Key:          *content.Key,
-						Size:         *content.Size,
-						ETag:         *content.ETag,
-						StorageClass: *content.StorageClass,
-						LastModified: *content.LastModified,
-					},
-					Count: index,
+				obj := model.Object{
+					Key:          *content.Key,
+					Size:         *content.Size,
+					ETag:         *content.ETag,
+					StorageClass: *content.StorageClass,
+					LastModified: *content.LastModified,
 				}
+				if model.ListObjectsWithFilter(obj, input) {
+					objectsChan <- model.ChanObject{
+						Obj: &obj,
+					}
+				}
+
 			}
 			log.Debugf("index %d", index)
 
 			for _, commonPrefix := range resp.CommonPrefixes {
 				index++
 				objectsChan <- model.ChanObject{
-					Dir:   commonPrefix.Prefix,
-					Count: index,
+					Dir: commonPrefix.Prefix,
 				}
 			}
 			if int(index) > int(input.Limit) && input.Limit != 0 {
@@ -164,7 +168,12 @@ func (c bucketClient) RmObject(profile, bucketName, prefix string) error {
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(prefix),
 		}
-		_, err := svc.DeleteObject(s3Input)
+		resp, err := svc.DeleteObject(s3Input)
+		// log.Infof(tea.Prettify(resp))
+		// 对象不存在的时候也不会报错
+		if err != nil {
+			log.Errorf(resp.String())
+		}
 		return err
 	}
 	return fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
