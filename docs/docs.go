@@ -10,7 +10,10 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "Patsnap DevOps Team"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -36,7 +39,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.ExecuteTaskRequest"
+                            "$ref": "#/definitions/model.TaskExecInput"
                         }
                     }
                 ],
@@ -212,7 +215,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "task id",
-                        "name": "task_id",
+                        "name": "id",
                         "in": "query"
                     },
                     {
@@ -587,21 +590,6 @@ const docTemplate = `{
                 }
             }
         },
-        "api.ExecuteTaskRequest": {
-            "type": "object",
-            "properties": {
-                "operator": {
-                    "type": "string"
-                },
-                "run_mode": {
-                    "description": "syncOnce keepSync",
-                    "type": "string"
-                },
-                "task_id": {
-                    "type": "string"
-                }
-            }
-        },
         "model.Record": {
             "type": "object",
             "properties": {
@@ -787,6 +775,21 @@ const docTemplate = `{
                 }
             }
         },
+        "model.TaskExecInput": {
+            "type": "object",
+            "properties": {
+                "operator": {
+                    "type": "string"
+                },
+                "sync_mode": {
+                    "description": "执行模式，支持修改同步模式。keepSync（实时同步） syncOnce（一次同步）",
+                    "type": "string"
+                },
+                "task_id": {
+                    "type": "string"
+                }
+            }
+        },
         "model.WorkerRequest": {
             "type": "object",
             "properties": {
@@ -826,12 +829,12 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
-	Host:             "",
+	Version:          "v1",
+	Host:             "localhost:8080",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "cbs manager API",
+	Description:      "Patsnap OPS Platform API spec.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 }

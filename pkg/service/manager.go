@@ -47,13 +47,20 @@ func (s *ManagerService) CheckWorker() {
 func (s *ManagerService) restartRecord(checkMap map[string]string, records []*model.Record, workerID string) {
 	for _, record := range records {
 		if record.Status == model.TaskRunning && record.WorkerID == workerID {
-			// 支持task计数，最多保持1个任务的修正
+			// 支持task计数，最多保持1个任务的修正，避免重复修复
 			if _, ok := checkMap[record.TaskID]; ok {
 				if checkMap[record.TaskID] == workerID {
 					continue
 				}
 			}
 			log.Infof("restart record %s, task id: %s", record.ID, record.TaskID)
+			// 修改record的状态为failed
+			record.Status = model.TaskFailed
+			err := s.Client.UpdateRecord(record)
+			if err != nil {
+				log.Errorf("update record %s failed, err: %v", record.ID, err)
+				continue
+			}
 			// 修复running的任务
 			recordID, err := s.Client.ExecuteTask(record.TaskID, "system", record.RunningMode)
 			if err != nil {

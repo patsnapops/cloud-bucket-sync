@@ -58,7 +58,16 @@ type RecordInput struct {
 	Status   Status `json:"status"`
 }
 
-type TaskWithRecord struct {
-	Task
-	Record []Record `json:"record"`
+func (r RecordInput) ToQuery() string {
+	var query []string
+	if r.TaskID != "" {
+		query = append(query, "task_id="+r.TaskID)
+	}
+	if r.RecordID != "" {
+		query = append(query, "id="+r.RecordID)
+	}
+	if r.Status != "" {
+		query = append(query, "status="+r.Status.String())
+	}
+	return joinQuery(query)
 }

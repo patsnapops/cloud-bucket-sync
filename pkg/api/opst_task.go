@@ -2,6 +2,7 @@ package api
 
 import (
 	"cbs/pkg/model"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/patsnapops/noop/log"
@@ -12,7 +13,7 @@ import (
 // @Tags task
 // @Accept  json
 // @Produce  json
-// @Param task_id query string false "task id"
+// @Param id query string false "task id"
 // @Param name query string false "task name"
 // @Param worker_tag query string false "worker_tag"
 // @Success 200 {object} []model.Task
@@ -20,7 +21,7 @@ import (
 // @Router /api/v1/task [get]
 func GetTaskList(c *gin.Context) {
 	resp, err := managerIo.QueryTask(model.TaskInput{
-		ID:        c.Query("task_id"),
+		ID:        c.Query("id"),
 		Name:      c.Query("name"),
 		WorkerTag: c.Query("worker_tag"),
 	})
@@ -73,7 +74,7 @@ func CreateTask(c *gin.Context) {
 	}
 	// 任务创建成功后，判断是否有定时任务配置决定是否立即启动任务
 	if req.Corn == "" {
-		recordID, err := managerIo.ExecuteTask(taskID, req.Submitter, "")
+		recordID, err := managerIo.ExecuteTask(taskID, req.Submitter, req.SyncMode)
 		if err != nil {
 			log.Errorf("execute task error: %v", err)
 			c.JSON(500, err.Error())
@@ -161,33 +162,45 @@ func ChangeRecordStatus(c *gin.Context) {
 	c.JSON(200, "ok")
 }
 
-type ExecuteTaskRequest struct {
-	Operator string `json:"operator"`
-	TaskID   string `json:"task_id"`
-	RunMode  string `json:"run_mode"` // syncOnce keepSync
-}
-
 // @Summary execute task
 // @Description execute task
 // @Tags task
 // @Accept  json
 // @Produce  json
-// @Param action body ExecuteTaskRequest true "task execute"
+// @Param action body model.TaskExecInput true "task execute"
 // @Success 200 {object} string
 // @Failure 500 {object} string
 // @Router /api/v1/execute [post]
 func ExecuteTask(c *gin.Context) {
-	var req ExecuteTaskRequest
+	var req model.TaskExecInput
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Errorf("bind json error: %v", err)
 		c.JSON(500, err.Error())
 		return
 	}
-	recordID, err := managerIo.ExecuteTask(req.TaskID, req.Operator, model.Mode(req.RunMode))
+	log.Debugf("execute task: %+v", req)
+	if req.SyncMode != string(model.ModeKeepSync) && req.SyncMode != string(model.ModeSyncOnce) {
+		log.Errorf("sync mode error: %v", req.SyncMode)
+		c.JSON(500, fmt.Sprintf("sync mode error: %v", req.SyncMode))
+		return
+	}
+	// 获取任务信息
+	tasks, err := managerIo.QueryTask(model.TaskInput{ID: req.TaskID})
 	if err != nil {
 		log.Errorf("execute task error: %v", err)
 		c.JSON(500, err.Error())
 		return
 	}
-	c.JSON(200, recordID)
+	if len(tasks) == 1 {
+		recordID, err := managerIo.ExecuteTask(req.TaskID, req.Operator, tasks[0].SyncMode)
+		if err != nil {
+			log.Errorf("execute task error: %v", err)
+			c.JSON(500, err.Error())
+			return
+		}
+		c.JSON(200, recordID)
+		return
+	}
+	c.JSON(500, "task not found,or has more than 1?")
+
 }

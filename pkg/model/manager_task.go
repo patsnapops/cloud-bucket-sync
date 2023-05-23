@@ -37,6 +37,20 @@ type TaskInput struct {
 	WorkerTag string `json:"worker_tag" gorm:"not null;default:''"`   // worker节点
 }
 
+func (t *TaskInput) ToQuery() string {
+	var query []string
+	if t.Name != "" {
+		query = append(query, "name="+t.Name)
+	}
+	if t.WorkerTag != "" {
+		query = append(query, "worker_tag="+t.WorkerTag)
+	}
+	if t.ID != "" {
+		query = append(query, "id="+t.ID)
+	}
+	return joinQuery(query)
+}
+
 // args to ObjectFilter
 func (t Task) ToFilter() *ObjectFilter {
 	return &ObjectFilter{

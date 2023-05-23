@@ -8,7 +8,6 @@ import (
 	"cbs/pkg/model"
 	"cbs/pkg/service"
 
-	"github.com/alibabacloud-go/tea/tea"
 	"github.com/gin-gonic/gin"
 	"github.com/patsnapops/ginx/middleware"
 	hh "github.com/patsnapops/http-headers"
@@ -47,7 +46,6 @@ var startCmd = &cobra.Command{
 	Long: "start manager server, default port is 8080",
 	Run: func(cmd *cobra.Command, args []string) {
 		initApp()
-		log.Debugf(tea.Prettify(managerConfig))
 		managerIo := io.NewManagerClient(initDB(*managerConfig))
 		managerC := service.NewManagerService(managerIo)
 		go startSchedule(managerC)
@@ -55,20 +53,13 @@ var startCmd = &cobra.Command{
 	},
 }
 
-// @title           cbs manager API
-// @version         v1
-// @description     Patsnap OPS Platform API spec.
-// @termsOfService  http://swagger.io/terms/
-// @contact.name    Patsnap DevOps Team
-// @host            localhost:8012
-// @BasePath
 func startGin(managerIo model.ManagerIo) {
-	ginEngine := gin.Default()
 	if !debug {
 		gin.SetMode(gin.ReleaseMode)
 	} else {
 		gin.SetMode(gin.DebugMode)
 	}
+	ginEngine := gin.Default()
 	// TODO JWT
 	middleware.AttachTo(ginEngine).
 		WithCacheDisabled().

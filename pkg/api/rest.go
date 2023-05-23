@@ -14,8 +14,8 @@ var (
 func ApplyRoutes(routerGroup *gin.RouterGroup, managerio model.ManagerIo) {
 	// 注册managerio
 	managerIo = managerio
-	if managerio == nil {
-		log.Panic("managerio is nil")
+	if managerIo == nil {
+		log.Panic("managerIo is nil")
 	}
 	log.Debugf("managerIo: %v", managerIo)
 	// worker

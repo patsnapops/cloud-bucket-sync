@@ -8,16 +8,6 @@ definitions:
       status:
         type: string
     type: object
-  api.ExecuteTaskRequest:
-    properties:
-      operator:
-        type: string
-      run_mode:
-        description: syncOnce keepSync
-        type: string
-      task_id:
-        type: string
-    type: object
   model.Record:
     properties:
       Progress:
@@ -158,6 +148,16 @@ definitions:
     - target_profile
     - target_url
     type: object
+  model.TaskExecInput:
+    properties:
+      operator:
+        type: string
+      sync_mode:
+        description: 执行模式，支持修改同步模式。keepSync（实时同步） syncOnce（一次同步）
+        type: string
+      task_id:
+        type: string
+    type: object
   model.WorkerRequest:
     properties:
       cloud:
@@ -180,8 +180,14 @@ definitions:
       updated_at:
         type: string
     type: object
+host: localhost:8080
 info:
-  contact: {}
+  contact:
+    name: Patsnap DevOps Team
+  description: Patsnap OPS Platform API spec.
+  termsOfService: http://swagger.io/terms/
+  title: cbs manager API
+  version: v1
 paths:
   /api/v1/execute:
     post:
@@ -194,7 +200,7 @@ paths:
         name: action
         required: true
         schema:
-          $ref: '#/definitions/api.ExecuteTaskRequest'
+          $ref: '#/definitions/model.TaskExecInput'
       produces:
       - application/json
       responses:
@@ -308,7 +314,7 @@ paths:
       parameters:
       - description: task id
         in: query
-        name: task_id
+        name: id
         type: string
       - description: task name
         in: query

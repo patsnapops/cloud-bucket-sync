@@ -87,7 +87,7 @@ func (c *managerClient) ListTasks() ([]*model.Task, error) {
 
 func (c *managerClient) QueryTask(input model.TaskInput) ([]*model.Task, error) {
 	var tasks []*model.Task
-	log.Debugf(tea.Prettify(input))
+	// log.Debugf(tea.Prettify(input))
 	sql := c.db.Model(&tasks).Where(&model.Task{
 		ID:     input.ID,
 		Name:   input.Name,
@@ -112,11 +112,17 @@ func (c *managerClient) DeleteTask(taskID string) error {
 }
 
 // ExecuteTask 创建一个新的record
-func (c *managerClient) ExecuteTask(taskID, operator string, mode model.Mode) (string, error) {
+// 检查同一个taskid的只能存在一个running或者一个pending的record
+func (c *managerClient) ExecuteTask(taskID, operator string, runningMode model.Mode) (string, error) {
+	records := []model.Record{}
+	c.db.Model(&model.Record{}).Where("task_id = ? and status in (?)", taskID, []model.Status{model.TaskRunning, model.TaskPending}).Find(&records)
+	if len(records) > 0 {
+		return "", model.ErrTaskRunning
+	}
 	recordTask := model.Record{
 		ID:          uuid.New().String(),
 		TaskID:      taskID,
-		RunningMode: mode,
+		RunningMode: runningMode,
 		Operator:    operator,
 	}
 	resL := c.db.Model(&recordTask).Create(&recordTask)

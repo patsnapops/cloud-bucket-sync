@@ -14,6 +14,8 @@ import (
 
 var (
 	taskFile string
+	operator string
+	syncMode string
 )
 
 func init() {
@@ -23,6 +25,8 @@ func init() {
 	taskCmd.AddCommand(showCmd)
 	taskCmd.AddCommand(execCmd)
 	taskCmd.PersistentFlags().StringVarP(&taskFile, "file", "f", "", "task file path, default is ./task.json")
+	execCmd.Flags().StringVarP(&operator, "operator", "o", "", "task operator")
+	execCmd.Flags().StringVarP(&syncMode, "sync-mode", "s", "", "task sync mode, support keepSync（real-time sync） syncOnce（one-time sync）")
 }
 
 var taskCmd = &cobra.Command{
@@ -61,7 +65,9 @@ var showCmd = &cobra.Command{
 		case 1:
 			// show taskID
 			taskID := args[0]
-			task, err := requestC.TaskGet(taskID)
+			tasks, err := requestC.TaskQuery(model.TaskInput{
+				ID: taskID,
+			})
 			if err != nil {
 				panic(err)
 			}
@@ -75,8 +81,12 @@ var showCmd = &cobra.Command{
 			if len(records) > 5 {
 				records = records[len(records)-5:]
 			}
-			fmt.Println(tea.Prettify(task))
-			fmt.Println(tea.Prettify(records))
+			for _, task := range tasks {
+				fmt.Println(tea.Prettify(model.TaskWithRecords{
+					Task:    *task,
+					Records: records,
+				}))
+			}
 			if len(records) > 5 {
 				fmt.Println("only show last 5 record by create_at...")
 			}
@@ -102,7 +112,7 @@ var execCmd = &cobra.Command{
 }
 
 func showTask(cmd *cobra.Command, args []string) {
-	tasks, err := requestC.TaskList()
+	tasks, err := requestC.TaskQuery(model.TaskInput{})
 	if err != nil {
 		panic(err)
 	}
@@ -180,7 +190,7 @@ func applyTask(cmd *cobra.Command, args []string) {
 // exec task
 func execTask(cmd *cobra.Command, args []string) {
 	taskID := args[0]
-	record, err := requestC.TaskExec(taskID)
+	record, err := requestC.TaskExec(taskID, operator, syncMode)
 	if err != nil {
 		panic(err)
 	}

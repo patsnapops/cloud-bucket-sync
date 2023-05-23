@@ -1,8 +1,15 @@
 {
     "swagger": "2.0",
     "info": {
-        "contact": {}
+        "description": "Patsnap OPS Platform API spec.",
+        "title": "cbs manager API",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "Patsnap DevOps Team"
+        },
+        "version": "v1"
     },
+    "host": "localhost:8080",
     "paths": {
         "/api/v1/execute": {
             "post": {
@@ -24,7 +31,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.ExecuteTaskRequest"
+                            "$ref": "#/definitions/model.TaskExecInput"
                         }
                     }
                 ],
@@ -200,7 +207,7 @@
                     {
                         "type": "string",
                         "description": "task id",
-                        "name": "task_id",
+                        "name": "id",
                         "in": "query"
                     },
                     {
@@ -575,21 +582,6 @@
                 }
             }
         },
-        "api.ExecuteTaskRequest": {
-            "type": "object",
-            "properties": {
-                "operator": {
-                    "type": "string"
-                },
-                "run_mode": {
-                    "description": "syncOnce keepSync",
-                    "type": "string"
-                },
-                "task_id": {
-                    "type": "string"
-                }
-            }
-        },
         "model.Record": {
             "type": "object",
             "properties": {
@@ -771,6 +763,21 @@
                 },
                 "worker": {
                     "description": "worker节点",
+                    "type": "string"
+                }
+            }
+        },
+        "model.TaskExecInput": {
+            "type": "object",
+            "properties": {
+                "operator": {
+                    "type": "string"
+                },
+                "sync_mode": {
+                    "description": "执行模式，支持修改同步模式。keepSync（实时同步） syncOnce（一次同步）",
+                    "type": "string"
+                },
+                "task_id": {
                     "type": "string"
                 }
             }

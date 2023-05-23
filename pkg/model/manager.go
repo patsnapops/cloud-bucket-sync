@@ -22,5 +22,5 @@ type ManagerIo interface {
 	CreateTask(task *Task) (taskID string, err error)
 	UpdateTask(task *Task) error
 	DeleteTask(taskID string) error
-	ExecuteTask(id, operator string, new_mode Mode) (recordID string, err error)
+	ExecuteTask(id, operator string, new_mode Mode) (recordID string, err error) //如果输入new_mode要指定
 }

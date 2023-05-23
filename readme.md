@@ -6,6 +6,7 @@ cbs 是一个云原生的用途不同云对象存储的同步转移的工具。�
 ### 1.task管理
 - 支持任务提交`cbs task apply -f task.json`
 - 支持任务执行`cbs task exec {task_id}`
+- 支持任务查看 `cbs task show {task_id}`
 
 更多信息： [cbs task command](./docs/cbs-task.md)
 ### 2.对象管理

@@ -27,27 +27,10 @@ func NewRequestService(config config.CliManager) model.RequestContract {
 	}
 }
 
-// get task
-func (r *RequestService) TaskGet(taskID string) ([]*model.Task, error) {
-	task := []*model.Task{}
-	data, err := doRequest(r.Url+"/task/"+taskID, "get", nil)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(data, &task)
-	if err != nil {
-		return nil, err
-	}
-	if len(task) == 0 {
-		return nil, fmt.Errorf("task not found")
-	}
-	return task, nil
-}
-
 // list task
-func (r *RequestService) TaskList() ([]model.Task, error) {
-	var tasks []model.Task
-	data, err := doRequest(r.Url+"/task", "get", nil)
+func (r *RequestService) TaskQuery(input model.TaskInput) ([]*model.Task, error) {
+	var tasks []*model.Task
+	data, err := doRequest(r.Url+"/task"+input.ToQuery(), "get", nil)
 	if err != nil {
 		return tasks, err
 	}
@@ -76,13 +59,14 @@ func (r *RequestService) TaskApply(args model.Task) (string, error) {
 }
 
 // exec task
-func (r *RequestService) TaskExec(taskID string) (string, error) {
+func (r *RequestService) TaskExec(taskID, operator, syncMode string) (string, error) {
 	input := req.Param{
-		"id":     taskID,
-		"action": "execute",
+		"task_id":   taskID,
+		"operator":  operator,
+		"sync_mode": syncMode,
 	}
 	var recordID string
-	resP, err := doRequest(r.Url+"/action", "post", input)
+	resP, err := doRequest(r.Url+"/execute", "post", input)
 	if err != nil {
 		return "", err
 	}
@@ -126,7 +110,7 @@ func (r *RequestService) RecordUpdate(record *model.Record) error {
 
 func (r *RequestService) RecordQuery(input model.RecordInput) ([]model.Record, error) {
 	var records []model.Record
-	data, err := doRequest(r.Url+"/record", "get", nil)
+	data, err := doRequest(r.Url+"/record"+input.ToQuery(), "get", nil)
 	if err != nil {
 		return records, err
 	}
@@ -187,6 +171,8 @@ func doRequest(url string, method string, param req.Param) ([]byte, error) {
 		return nil, err
 	}
 	switch r.Response().StatusCode {
+	case 500:
+		return r.Bytes(), fmt.Errorf("pop返回错误信息 %s", string(r.Bytes()))
 	case 400:
 		return r.Bytes(), fmt.Errorf("pop返回错误信息 %s", string(r.Bytes()))
 	// case 404:

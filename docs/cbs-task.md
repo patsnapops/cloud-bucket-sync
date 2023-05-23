@@ -20,7 +20,7 @@ manager:
 ```
 
 ## 最佳实践
-### 查询task任务
+### 1.查询task任务
 
 ```bash
 [root@zhoushoujianworkspace cloud-bucket-sync]# cbs -c ./config/ task show
@@ -37,7 +37,7 @@ manager:
                                                                                                          ---------------+--------------------------------------------------
 ```
 
-### 查询task任务详情
+### 2.查询task任务详情
 
 ```bash
 [root@zhoushoujianworkspace cloud-bucket-sync]# cbs -c ./config/ task show 1c1d84ae-a39f-41e4-8887-66cc1b5d0e2f
@@ -67,3 +67,10 @@ manager:
    "records": null
 }
 ```
+### 3. 提交一个或多个任务
+  
+```bash
+[root@zhoushoujianworkspace cloud-bucket-sync]# go run main.go task apply -f task.json 
+taskID: e549bcef-e4b5-4348-b8d6-8db99ae2037d
+```
+[task.json](./task.json)
