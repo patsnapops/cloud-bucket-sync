@@ -31,8 +31,8 @@ func (s *ManagerService) CheckWorker() {
 		}
 		// 检查worker的LastHc是否超过10分钟没更新，如果超过则认为worker挂掉，需要修复running的任务
 		log.Debugf("worker %s last hc: %s", worker.ID, worker.Hc.Format("2006-01-02 15:04:05"))
-		if worker.Hc.Add(10*60).Unix() < time.Now().Unix() {
-			log.Infof("worker %s is dead 10m, last hc: %s", worker.ID, worker.Hc.Format("2006-01-02 15:04:05"))
+		if worker.Hc.Add(10*time.Minute).Unix() < time.Now().Unix() {
+			log.Infof("worker %s is dead 10m, last hc: %s, now %s", worker.ID, worker.Hc.Format("2006-01-02 15:04:05"), time.Now().Format("2006-01-02 15:04:05"))
 			err = s.Client.DeleteWorker(worker.ID)
 			if err != nil {
 				log.Errorf("delete worker %s failed, err: %v", worker.ID, err)

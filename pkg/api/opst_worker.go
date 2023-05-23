@@ -8,7 +8,7 @@ import (
 
 // @Summary get worker list
 // @Description get all worker list
-// @Tags opst/worker
+// @Tags worker
 // @Accept  json
 // @Produce  json
 // @param cloud query string false "cloud"
@@ -16,7 +16,7 @@ import (
 // @param worker_id query string false "worker id"
 // @Success 200 {object} []model.WorkerResponse
 // @Failure 500 {object} string
-// @Router /v2023-03/opst/worker [get]
+// @Router /api/v1/worker [get]
 func GetWorkerList(c *gin.Context) {
 	cloud := c.Query("cloud")
 	region := c.Query("region")
@@ -35,13 +35,13 @@ func GetWorkerList(c *gin.Context) {
 
 // @Summary get worker detail
 // @Description get worker detail
-// @Tags opst/worker
+// @Tags worker
 // @Accept  json
 // @Produce  json
 // @Param id path string true "worker id"
 // @Success 200 {object} model.WorkerResponse
 // @Failure 500 {object} string
-// @Router /v2023-03/opst/worker/{id} [get]
+// @Router /api/v1/worker/{id} [get]
 func GetWorkerDetail(c *gin.Context) {
 	resp, err := managerIo.QueryWorker(model.WorkerInput{
 		WorkerID: c.Param("id"),
@@ -55,13 +55,13 @@ func GetWorkerDetail(c *gin.Context) {
 
 // @Summary create worker
 // @Description 带上cloud region 注册worker
-// @Tags opst/worker
+// @Tags worker
 // @Accept  json
 // @Produce  json
 // @Param worker body model.WorkerRequest true "worker"
 // @Success 200 {object} model.WorkerResponse
 // @Failure 500 {object} string
-// @Router /v2023-03/opst/worker [post]
+// @Router /api/v1/worker [post]
 func CreateWorker(c *gin.Context) {
 	var req model.WorkerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -78,13 +78,13 @@ func CreateWorker(c *gin.Context) {
 
 // @Summary update worker
 // @Description 只用来更新worker的hc状态
-// @Tags opst/worker
+// @Tags worker
 // @Accept  json
 // @Produce  json
 // @Param id path string true "worker id"
 // @Success 200 {object} model.WorkerResponse
 // @Failure 500 {object} string
-// @Router /v2023-03/opst/worker/{id} [put]
+// @Router /api/v1/worker/{id} [put]
 func UpdateWorker(c *gin.Context) {
 	err := managerIo.UpdateWorker(c.Param("id"))
 	if err != nil {

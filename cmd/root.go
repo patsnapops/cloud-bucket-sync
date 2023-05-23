@@ -29,7 +29,7 @@ func init() {
 	rootCmd.AddCommand(bucketCmd)
 
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "enable debug mode")
-	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "~/.cbs/", "config file dir,default is ~/.cbs/")
+	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "./config/", "config file dir,default is ~/.cbs/")
 	rootCmd.PersistentFlags().StringVarP(&logPath, "log", "", "./cbs.log", "log file dir,default is ./cbs.log")
 	rootCmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "dry run")
 }

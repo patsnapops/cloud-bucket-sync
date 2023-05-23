@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"cbs/config"
+	_ "cbs/docs"
 	"cbs/pkg/api"
 	"cbs/pkg/io"
 	"cbs/pkg/model"
@@ -14,18 +15,22 @@ import (
 	"github.com/patsnapops/noop/log"
 	"github.com/robfig/cron"
 	"github.com/spf13/cobra"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
 var (
-	port string
+	port            string
+	disableSchedule bool
 )
 
 func init() {
 	apiServerCmd.AddCommand(startCmd)
 	startCmd.Flags().StringVarP(&port, "port", "p", "8080", "manager server port")
+	startCmd.Flags().BoolVarP(&disableSchedule, "disable-schedule", "", false, "disable schedule")
 }
 
 var apiServerCmd = &cobra.Command{
@@ -45,13 +50,25 @@ var startCmd = &cobra.Command{
 		log.Debugf(tea.Prettify(managerConfig))
 		managerIo := io.NewManagerClient(initDB(*managerConfig))
 		managerC := service.NewManagerService(managerIo)
-		go startGin(managerIo)
-		startSchedule(managerC)
+		go startSchedule(managerC)
+		startGin(managerIo)
 	},
 }
 
+// @title           cbs manager API
+// @version         v1
+// @description     Patsnap OPS Platform API spec.
+// @termsOfService  http://swagger.io/terms/
+// @contact.name    Patsnap DevOps Team
+// @host            localhost:8012
+// @BasePath
 func startGin(managerIo model.ManagerIo) {
 	ginEngine := gin.Default()
+	if !debug {
+		gin.SetMode(gin.ReleaseMode)
+	} else {
+		gin.SetMode(gin.DebugMode)
+	}
 	// TODO JWT
 	middleware.AttachTo(ginEngine).
 		WithCacheDisabled().
@@ -59,14 +76,13 @@ func startGin(managerIo model.ManagerIo) {
 		WithRecover().
 		WithRequestID(hh.XRequestID).
 		WithSecurity()
+	// add swagger
+	ginEngine.GET("/swagger/*any", func(c *gin.Context) {
+		c.Next()
+	}, ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	r := ginEngine.Group("/api/v1")
 	api.ApplyRoutes(r, managerIo)
-
-	if !debug {
-		gin.SetMode(gin.ReleaseMode)
-	} else {
-		gin.SetMode(gin.DebugMode)
-	}
 
 	err := ginEngine.Run(":" + port)
 	if err != nil {
@@ -75,6 +91,10 @@ func startGin(managerIo model.ManagerIo) {
 }
 
 func startSchedule(managerC model.ManagerContract) {
+	if disableSchedule {
+		log.Infof("schedule is disabled.")
+		return
+	}
 	c := cron.New()
 	c.AddFunc("*/10 * * * * *", func() {
 		managerC.CheckWorker()

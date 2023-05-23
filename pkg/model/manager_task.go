@@ -32,9 +32,9 @@ func (Task) TableName() string {
 }
 
 type TaskInput struct {
-	ID     string `json:"id" gorm:"primary_key,unique_index,not null"`
-	Name   string `json:"name" gorm:"not null" binding:"required"` // 任务名称
-	Worker string `json:"worker" gorm:"not null;default:''"`       // worker节点
+	ID        string `json:"id" gorm:"primary_key,unique_index,not null"`
+	Name      string `json:"name" gorm:"not null" binding:"required"` // 任务名称
+	WorkerTag string `json:"worker_tag" gorm:"not null;default:''"`   // worker节点
 }
 
 // args to ObjectFilter

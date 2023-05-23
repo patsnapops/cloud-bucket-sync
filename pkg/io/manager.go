@@ -91,7 +91,7 @@ func (c *managerClient) QueryTask(input model.TaskInput) ([]*model.Task, error) 
 	sql := c.db.Model(&tasks).Where(&model.Task{
 		ID:     input.ID,
 		Name:   input.Name,
-		Worker: input.Worker,
+		Worker: input.WorkerTag,
 	})
 	resL := sql.Find(&tasks)
 	return tasks, resL.Error

@@ -9,14 +9,21 @@ import (
 
 // @Summary get task list
 // @Description get all task list
-// @Tags opst/task
+// @Tags task
 // @Accept  json
 // @Produce  json
-// @Success 200 {object} []model.TaskResponse
+// @Param task_id query string false "task id"
+// @Param name query string false "task name"
+// @Param worker_tag query string false "worker_tag"
+// @Success 200 {object} []model.Task
 // @Failure 500 {object} string
-// @Router /v2023-03/opst/task [get]
+// @Router /api/v1/task [get]
 func GetTaskList(c *gin.Context) {
-	resp, err := managerIo.ListTasks()
+	resp, err := managerIo.QueryTask(model.TaskInput{
+		ID:        c.Query("task_id"),
+		Name:      c.Query("name"),
+		WorkerTag: c.Query("worker_tag"),
+	})
 	if err != nil {
 		c.JSON(500, err.Error())
 		return
@@ -26,13 +33,13 @@ func GetTaskList(c *gin.Context) {
 
 // @Summary get task detail
 // @Description get task detail
-// @Tags  opst/task
+// @Tags  task
 // @Accept  json
 // @Produce  json
 // @Param id path string true "task id"
-// @Success 200 {object} model.TaskResponse
+// @Success 200 {object} []model.Task
 // @Failure 500 {object} string
-// @Router /v2023-03/opst/task/{id} [get]
+// @Router /api/v1/task/{id} [get]
 func GetTaskDetail(c *gin.Context) {
 	resp, err := managerIo.QueryTask(model.TaskInput{
 		ID: c.Param("id"),
@@ -46,13 +53,13 @@ func GetTaskDetail(c *gin.Context) {
 
 // @Summary create task
 // @Description create task, sourceurl 和 targeturl 支持目录，targeturl 不支持文件，如果写文件默认当作dir处理。
-// @Tags  opst/task
+// @Tags  task
 // @Accept  json
 // @Produce  json
-// @Param task body model.TaskRequest true "task"
+// @Param task body model.Task true "task"
 // @Success 200 {object} string
 // @Failure 500 {object} string
-// @Router /v2023-03/opst/task [post]
+// @Router /api/v1/task [post]
 func CreateTask(c *gin.Context) {
 	var req model.Task
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -80,14 +87,14 @@ func CreateTask(c *gin.Context) {
 
 // @Summary update task
 // @Description update task
-// @Tags  opst/task
+// @Tags  task
 // @Accept  json
 // @Produce  json
 // @Param id path string true "task id"
-// @Param task body model.TaskRequest true "task"
-// @Success 200 {object} model.TaskResponse
+// @Param task body model.Task true "task"
+// @Success 200 {object} string
 // @Failure 500 {object} string
-// @Router /v2023-03/opst/task/{id} [put]
+// @Router /api/v1/task/{id} [put]
 func UpdateTask(c *gin.Context) {
 	var req model.Task
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -104,13 +111,13 @@ func UpdateTask(c *gin.Context) {
 
 // @Summary delete task
 // @Description delete task
-// @Tags  opst/task
+// @Tags  task
 // @Accept  json
 // @Produce  json
 // @Param id path string true "task id"
 // @Success 200 {object} string
 // @Failure 500 {object} string
-// @Router /v2023-03/opst/task/{id} [delete]
+// @Router /api/v1/task/{id} [delete]
 func DeleteTask(c *gin.Context) {
 	err := managerIo.DeleteTask(c.Param("id"))
 	if err != nil {
@@ -128,13 +135,13 @@ type ChangeRecordStatusRequest struct {
 
 // @Summary chang record status
 // @Description only this api can change record status.
-// @Tags opst
+// @Tags record
 // @Accept  json
 // @Produce  json
-// @Param action body model.ChangeRecordStatusRequest  true "record chang"
+// @Param action body ChangeRecordStatusRequest  true "record chang"
 // @Success 200 {object} string
 // @Failure 500 {object} string
-// @Router /v2023-03/opst/status [post]
+// @Router /api/v1/status [post]
 func ChangeRecordStatus(c *gin.Context) {
 	var req ChangeRecordStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -162,13 +169,13 @@ type ExecuteTaskRequest struct {
 
 // @Summary execute task
 // @Description execute task
-// @Tags opst/task
+// @Tags task
 // @Accept  json
 // @Produce  json
-// @Param action body model.ExecuteTaskRequest true "task execute"
+// @Param action body ExecuteTaskRequest true "task execute"
 // @Success 200 {object} string
 // @Failure 500 {object} string
-// @Router /v2023-03/opst/execute [post]
+// @Router /api/v1/execute [post]
 func ExecuteTask(c *gin.Context) {
 	var req ExecuteTaskRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

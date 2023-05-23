@@ -9,15 +9,15 @@ import (
 
 // @Summary get task record list
 // @Description get task record list
-// @Tags  opst/record
+// @Tags  record
 // @Accept  json
 // @Produce  json
 // @Param task_id query string false "task id"
 // @Param status query string false "status"
 // @Param record_id query string false "record id"
-// @success 200 {object} []model.SyncTaskRecord
+// @success 200 {object} []model.Record
 // @Failure 500 {object} string
-// @Router /v2023-03/opst/record [get]
+// @Router /api/v1/record [get]
 func GetTaskRecordList(c *gin.Context) {
 	taskID := c.Query("task_id")
 	status := c.Query("status")
@@ -38,14 +38,14 @@ func GetTaskRecordList(c *gin.Context) {
 
 // @Summary update task record
 // @Description update task record;不支持status的修改，修改status需要调用接口 action接口
-// @Tags  opst/record
+// @Tags  record
 // @Accept  json
 // @Produce  json
 // @Param id path string true "task id"
-// @Param record body model.RecordRequest true "task record"
-// @Success 200 {object} model.TaskResponse
+// @Param record body model.Record true "task record"
+// @Success 200 {object} string
 // @Failure 500 {object} string
-// @Router /v2023-03/opst/record/{id} [put]
+// @Router /api/v1/record/{id} [put]
 func UpdateTaskRecord(c *gin.Context) {
 	var req model.Record
 	if err := c.ShouldBindJSON(&req); err != nil {
