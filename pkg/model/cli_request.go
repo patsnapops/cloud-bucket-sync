@@ -5,10 +5,11 @@ type RequestContract interface {
 	TaskApply(args Task) (string, error)
 	TaskExec(taskID, operator, syncMode string) (string, error)
 
-	RecordUpdateStatus(string, Status) error
+	RecordUpdateStatus(recordID string, status Status) error
 	RecordUpdate(*Record) error
 	RecordQuery(RecordInput) ([]Record, error)
 
+	WorkerRegister(cloud, region string) (string, error)
 	WorkerQuery(WorkerInput) ([]Worker, error)
 	WorkerHcUpdate(workerID string) error
 }

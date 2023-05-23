@@ -124,6 +124,23 @@ func (r *RequestService) RecordQuery(input model.RecordInput) ([]model.Record, e
 	return records, nil
 }
 
+// ------------------ worker ------------------
+func (r *RequestService) WorkerRegister(cloud, region string) (workerID string, err error) {
+	input := req.Param{
+		"cloud":  cloud,
+		"region": region,
+	}
+	resP, err := doRequest(r.Url+"/worker", "post", input)
+	if err != nil {
+		return "", err
+	}
+	err = json.Unmarshal(resP, &workerID)
+	if err != nil {
+		return "", err
+	}
+	return workerID, nil
+}
+
 func (r *RequestService) WorkerQuery(input model.WorkerInput) ([]model.Worker, error) {
 	var workers []model.Worker
 	data, err := doRequest(r.Url+"/worker"+input.ToQuery(), "get", nil)

@@ -2,16 +2,24 @@ package cmd
 
 import (
 	"cbs/pkg/model"
+	"time"
 
 	"github.com/alibabacloud-go/tea/tea"
+	"github.com/patsnapops/noop/log"
 	"github.com/spf13/cobra"
 )
 
-var ()
+var (
+	region string
+	cloud  string
+)
 
 func init() {
 	rootCmd.AddCommand(workerCmd)
 	workerCmd.AddCommand(showWorkerCmd)
+	workerCmd.AddCommand(runWorker)
+	runWorker.Flags().StringVarP(&region, "region", "r", "cn", "eg: cn, us, eu, ap")
+	runWorker.Flags().StringVarP(&cloud, "cloud", "c", "aws", "eg: aws, azure, aliyun, huawei, tencent, google")
 }
 
 var workerCmd = &cobra.Command{
@@ -22,6 +30,105 @@ var workerCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
+}
+
+var runWorker = &cobra.Command{
+	Use:     "start",
+	Short:   "start a worker",
+	Aliases: []string{"run"},
+	Long:    "\nyou know for start a worker!",
+	Run: func(cmd *cobra.Command, args []string) {
+		initApp()
+		switch len(args) {
+		case 0:
+			runWorkerCmd(cmd, args)
+		default:
+			cmd.Help()
+		}
+	},
+}
+
+func runWorkerCmd(cmd *cobra.Command, args []string) {
+	// 注册
+	workerID, err := requestC.WorkerRegister(cloud, region)
+	if err != nil {
+		panic(err)
+	}
+	worker := model.Worker{
+		ID:     workerID,
+		Cloud:  cloud,
+		Region: region,
+	}
+	log.Infof("worker start with id: %s", workerID)
+	log.Infof("cloud,region: %s,%s", cloud, region)
+	for {
+		run(worker)
+		time.Sleep(60 * time.Second)
+	}
+}
+
+func run(worker model.Worker) {
+	// 查询pending的任务record
+	records, err := requestC.RecordQuery(model.RecordInput{Status: "pending"})
+	if err != nil {
+		log.Errorf("query pending record error: %s", err)
+	}
+	for _, record := range records {
+		// 任务准备
+		tasks, err := requestC.TaskQuery(model.TaskInput{ID: record.TaskID})
+		if err != nil {
+			log.Errorf("query task error: %s", err)
+			continue
+		}
+		if len(tasks) != 1 {
+			log.Errorf("query task error,or not 1: %s", err)
+		}
+		task := tasks[0]
+		// 实时同步任务不在同一个worker上重复执行。
+		// 更新任务的workerID
+		if checkIsRunBySameWorker(&record, worker) {
+			continue
+		}
+
+		// 更新record的workerID
+		record.WorkerID = worker.ID
+		err = requestC.RecordUpdate(&record)
+		if err != nil {
+			log.Errorf("update record workerID error: %s", err)
+			continue
+		}
+		// 更新record
+		err = requestC.RecordUpdateStatus(record.ID, model.TaskRunning)
+		if err != nil {
+			log.Errorf("update record status error: %s", err)
+			continue
+		}
+		isServerSide := isServerSide(task.SourceProfile, task.TargetProfile)
+		log.Debugf("is cross region %v", isServerSide)
+		// 执行任务
+		switch record.RunningMode {
+		case model.ModeSyncOnce:
+		// 一次同步
+		case model.ModeKeepSync:
+		// 保持同步
+		default:
+			log.Errorf("unknown running mode: %s", record.RunningMode)
+		}
+	}
+}
+
+func checkIsRunBySameWorker(record *model.Record, worker model.Worker) bool {
+	if record.WorkerID == worker.ID {
+		log.Errorf("跳过一个worker同时执行任务的情况 %s", record.ID)
+		return true
+	}
+	return false
+}
+
+// 要知道源和目的是否需要走公网消耗流量，如果走serverSide不仅速度快，还能节省流量费用。
+// TODO: 通过profile来判断是否是serverSide
+func isServerSide(profileFrom, profileTo string) bool {
+	return false
 }
 
 var showWorkerCmd = &cobra.Command{
