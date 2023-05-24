@@ -180,28 +180,26 @@ func ExecuteTask(c *gin.Context) {
 		return
 	}
 	log.Debugf("execute task: %+v", req)
-	if req.SyncMode != string(model.ModeKeepSync) && req.SyncMode != string(model.ModeSyncOnce) {
-		log.Errorf("sync mode error: %v", req.SyncMode)
-		c.JSON(500, fmt.Sprintf("sync mode error: %v", req.SyncMode))
-		return
-	}
 	// 获取任务信息
-	tasks, err := managerIo.QueryTask(model.TaskInput{ID: req.TaskID})
+	task, err := managerIo.GetTaskById(req.TaskID)
 	if err != nil {
 		log.Errorf("execute task error: %v", err)
 		c.JSON(500, err.Error())
 		return
 	}
-	if len(tasks) == 1 {
-		recordID, err := managerIo.ExecuteTask(req.TaskID, req.Operator, tasks[0].SyncMode)
-		if err != nil {
-			log.Errorf("execute task error: %v", err)
-			c.JSON(500, err.Error())
-			return
-		}
-		c.JSON(200, recordID)
+	if req.SyncMode == "" {
+		req.SyncMode = task.SyncMode
+	}
+	if req.SyncMode != "syncOnce" && req.SyncMode != "keepSync" {
+		c.JSON(500, fmt.Sprintf("syncMode error %s", req.SyncMode))
 		return
 	}
-	c.JSON(500, "task not found,or has more than 1?")
-
+	recordID, err := managerIo.ExecuteTask(req.TaskID, req.Operator, req.SyncMode)
+	if err != nil {
+		log.Errorf("execute task error: %v", err)
+		c.JSON(500, err.Error())
+		return
+	}
+	log.Infof("execute task success, taskID: %s, recordID: %s", req.TaskID, recordID)
+	c.JSON(200, recordID)
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/alibabacloud-go/tea/tea"
 	"github.com/olekukonko/tablewriter"
+	"github.com/patsnapops/noop/log"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +26,7 @@ func init() {
 	taskCmd.AddCommand(showCmd)
 	taskCmd.AddCommand(execCmd)
 	taskCmd.PersistentFlags().StringVarP(&taskFile, "file", "f", "", "task file path, default is ./task.json")
-	execCmd.Flags().StringVarP(&operator, "operator", "o", "", "task operator")
+	execCmd.Flags().StringVarP(&operator, "operator", "o", "cli", "task operator")
 	execCmd.Flags().StringVarP(&syncMode, "sync-mode", "s", "", "task sync mode, support keepSync（real-time sync） syncOnce（one-time sync）")
 }
 
@@ -132,7 +133,7 @@ func showTask(cmd *cobra.Command, args []string) {
 		cancel := 0
 		pending := 0
 		records, err := requestC.RecordQuery(model.RecordInput{
-			TaskID: t.ID,
+			TaskID: t.Id,
 		})
 		if err != nil {
 			records = []model.Record{}
@@ -152,7 +153,7 @@ func showTask(cmd *cobra.Command, args []string) {
 			}
 		}
 		recordStatus = fmt.Sprintf("pending:%d,running:%d,success:%d,failed:%d,cancel:%d", pending, running, success, failed, cancel)
-		table.Append([]string{t.ID, strings.ReplaceAll(taskName, " ", "/"), string(t.WorkerTag), string(t.SyncMode), t.Submitter, recordStatus})
+		table.Append([]string{t.Id, strings.ReplaceAll(taskName, " ", "/"), string(t.WorkerTag), string(t.SyncMode), t.Submitter, recordStatus})
 	}
 	table.SetFooter([]string{"", "", "", "", "count", tea.ToString(len(tasks))})
 	table.Render()
@@ -190,6 +191,7 @@ func applyTask(cmd *cobra.Command, args []string) {
 // exec task
 func execTask(cmd *cobra.Command, args []string) {
 	taskID := args[0]
+	log.Debugf(taskID, operator, syncMode)
 	record, err := requestC.TaskExec(taskID, operator, syncMode)
 	if err != nil {
 		panic(err)

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"cbs/pkg/model"
+	"strings"
 	"time"
 
 	"github.com/alibabacloud-go/tea/tea"
@@ -88,6 +89,10 @@ func run(worker model.Worker) {
 			continue
 		}
 		log.Debugf(tea.Prettify(task))
+		// 判断任务和节点的亲和性
+		if !checkTaskAndWorkerAffinity(task, worker) {
+			continue
+		}
 		log.Debugf(tea.Prettify(record))
 		// 实时同步任务不在同一个worker上重复执行。
 		// 更新任务的workerID
@@ -108,20 +113,36 @@ func run(worker model.Worker) {
 			log.Errorf("update record status error: %s", err)
 			continue
 		}
+		log.Infof("start record %s", record.Id)
 		isServerSide := isServerSide(task.SourceProfile, task.TargetProfile)
 		log.Debugf("is cross region %v", isServerSide)
 		// 执行任务
 		switch record.RunningMode {
-		case model.ModeSyncOnce:
-		// 一次同步
-		case model.ModeKeepSync:
-		// 保持同步
+		case "syncOnce":
+			log.Debugf("syncOnce")
+		case "keepSync":
+			log.Debugf("keepSync")
 		default:
 			log.Errorf("unknown running mode: %s", record.RunningMode)
 		}
 	}
 	// update hc
 	requestC.WorkerHcUpdate(worker.ID)
+}
+
+// 判断任务和节点的亲和性
+func checkTaskAndWorkerAffinity(task *model.Task, worker model.Worker) bool {
+	if task.WorkerTag == "" {
+		log.Errorf("任务没有指定workerTag %s", task.Id)
+		return false
+	}
+	taskCloud := task.WorkerTag[0:strings.Index(task.WorkerTag, "-")]
+	taskRegion := task.WorkerTag[strings.Index(task.WorkerTag, "-")+1:]
+	if taskCloud != worker.Cloud || taskRegion != worker.Region {
+		log.Errorf("任务和节点不匹配 %s", task.Id)
+		return false
+	}
+	return true
 }
 
 func checkIsRunBySameWorker(record *model.Record, worker model.Worker) bool {

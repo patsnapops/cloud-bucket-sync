@@ -57,7 +57,6 @@ func (c *managerClient) ListWorkers() ([]*model.Worker, error) {
 
 func (c *managerClient) QueryWorker(input model.WorkerInput) ([]*model.Worker, error) {
 	var workers []*model.Worker
-	log.Debugf(tea.Prettify(input))
 	sql := c.db.Model(&workers).Where(&model.Worker{
 		ID:     input.WorkerID,
 		Cloud:  input.Cloud,
@@ -92,18 +91,11 @@ func (c *managerClient) DeleteWorker(workerID string) error {
 	return c.db.Model(&worker).Where("id = ?", workerID).Update("is_deleted", true).Error
 }
 
-func (c *managerClient) ListTasks() ([]*model.Task, error) {
-	log.Debugf("list tasks")
-	var tasks []*model.Task
-	err := c.db.Find(&tasks).Error
-	return tasks, err
-}
-
 func (c *managerClient) QueryTask(input model.TaskInput) ([]*model.Task, error) {
 	var tasks []*model.Task
 	// log.Debugf(tea.Prettify(input))
 	sql := c.db.Model(&tasks).Where(&model.Task{
-		ID:        input.ID,
+		Id:        input.ID,
 		Name:      input.Name,
 		WorkerTag: input.WorkerTag,
 	})
@@ -111,10 +103,16 @@ func (c *managerClient) QueryTask(input model.TaskInput) ([]*model.Task, error) 
 	return tasks, resL.Error
 }
 
+func (c *managerClient) GetTaskById(taskID string) (*model.Task, error) {
+	var task model.Task
+	err := c.db.Model(&task).Where("id = ?", taskID).First(&task).Error
+	return &task, err
+}
+
 func (c *managerClient) CreateTask(task *model.Task, managerConfig config.ManagerConfig) (string, error) {
-	task.ID = uuid.New().String()
+	task.Id = uuid.New().String()
 	task.WorkerTag = fmtWorkerTag(task, managerConfig)
-	return task.ID, c.db.Create(task).Error
+	return task.Id, c.db.Create(task).Error
 }
 
 // fmt task worker tags，依据
@@ -165,7 +163,7 @@ func (c *managerClient) DeleteTask(taskID string) error {
 
 // ExecuteTask 创建一个新的record
 // 检查同一个taskid的只能存在一个running或者一个pending的record
-func (c *managerClient) ExecuteTask(taskID, operator string, runningMode model.Mode) (string, error) {
+func (c *managerClient) ExecuteTask(taskID, operator, runningMode string) (string, error) {
 	records := []model.Record{}
 	c.db.Model(&model.Record{}).Where("task_id = ? and status in (?)", taskID, []model.Status{model.TaskRunning, model.TaskPending}).Find(&records)
 	if len(records) > 0 {

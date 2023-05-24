@@ -19,10 +19,10 @@ type ManagerIo interface {
 	UpdateWorker(string) error
 	DeleteWorker(workerID string) error
 
-	ListTasks() ([]*Task, error)
 	QueryTask(input TaskInput) ([]*Task, error)
+	GetTaskById(taskID string) (*Task, error)
 	CreateTask(task *Task, profiles config.ManagerConfig) (taskID string, err error)
 	UpdateTask(task *Task) error
 	DeleteTask(taskID string) error
-	ExecuteTask(id, operator string, new_mode Mode) (recordID string, err error) //如果输入new_mode要指定
+	ExecuteTask(id, operator, new_mode string) (recordID string, err error) //如果输入new_mode要指定
 }

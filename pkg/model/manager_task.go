@@ -3,7 +3,7 @@ package model
 import "time"
 
 type Task struct {
-	ID            string    `json:"id" gorm:"primary_key,unique_index,not null"`
+	Id            string    `json:"id" gorm:"primary_key,unique_index,not null"`
 	CreatedAt     time.Time `json:"created_at" gorm:"column:created_at"`
 	UpdatedAt     time.Time `json:"updated_at" gorm:"column:updated_at"`
 	IsDeleted     bool      `json:"is_deleted" gorm:"not null;default:false"`
@@ -13,7 +13,7 @@ type Task struct {
 	TargetUrl     string    `json:"target_url" gorm:"not null" binding:"required"`                                                                                // S3URL s3://destBucket/dir/ 不支持文件结尾 没有/的目录看作目录处理
 	SourceProfile string    `json:"source_profile" gorm:"not null" binding:"required" example:"cn3977"`                                                           // 源Profile配置 可选 cn9554,cn3977,cn0536,us7478,us0066,us1549,tx-cn,tx-us
 	TargetProfile string    `json:"target_profile" gorm:"not null" binding:"required" example:"us7478"`                                                           // 目标Profile配置 可选 cn9554,cn3977,cn0536,us7478,us0066,us1549,tx-cn,tx-us
-	SyncMode      Mode      `json:"sync_mode" gorm:"not null;default:syncOnce" binding:"required" example:"syncOnce"`                                             // 默认运行模式 syncOnce 一次性任务, KeepSync 持续同步
+	SyncMode      string    `json:"sync_mode" gorm:"not null;default:syncOnce" binding:"required" example:"syncOnce"`                                             // 默认运行模式 syncOnce 一次性任务, KeepSync 持续同步
 	Submitter     string    `json:"submitter" binding:"required"`                                                                                                 // 提交人
 	Corn          string    `json:"corn"  gorm:"not null;default:''" example:"0 */8 * * 1,2,3,4,5" `                                                              // 格式为 分、时、日、月、周                                                      // cron表达式 用于定时任务 ’分 时 日 月 周‘
 	KeysUrl       string    `json:"keys_url" gorm:"not null;default:''" example:"s3://bucket/key"`                                                                // S3URL s3://bucket/key 支持提供文件列表去同步

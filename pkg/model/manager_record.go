@@ -31,7 +31,7 @@ type Record struct {
 	CreatedAt    time.Time `json:"created_at" gorm:"column:created_at"`
 	UpdatedAt    time.Time `json:"updated_at" gorm:"column:updated_at"`
 	TaskId       string    `json:"task_id" gorm:"not null"`                       // 任务ID
-	RunningMode  Mode      `json:"running_mode" gorm:"not null;default:syncOnce"` // 运行模式, syncOnce,KeepSync
+	RunningMode  string    `json:"running_mode" gorm:"not null;default:syncOnce"` // 运行模式, syncOnce,KeepSync
 	Operator     string    `json:"operator"`                                      // 操作人
 	Status       Status    `json:"status" gorm:"not null;default:pending"`        // 任务状态 请走action接口去修改。
 	Progress     int64     `json:"Progress" gorm:"not null;default:0"`            // 进度 0-100
