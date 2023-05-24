@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"cbs/pkg/model"
+	"cbs/pkg/service"
 	"strings"
 	"time"
 
@@ -11,8 +12,9 @@ import (
 )
 
 var (
-	region string
-	cloud  string
+	region  string
+	cloud   string
+	workerC model.WorkerContract
 )
 
 func init() {
@@ -40,6 +42,7 @@ var runWorker = &cobra.Command{
 	Long:    "\nyou know for start a worker!",
 	Run: func(cmd *cobra.Command, args []string) {
 		initApp()
+		workerC = service.NewWorkerService(bucketC)
 		switch len(args) {
 		case 0:
 			runWorkerCmd(cmd, args)
@@ -120,8 +123,10 @@ func run(worker model.Worker) {
 		switch record.RunningMode {
 		case "syncOnce":
 			log.Debugf("syncOnce")
+			workerC.SyncOnce(*task, record, isServerSide)
 		case "keepSync":
 			log.Debugf("keepSync")
+			workerC.KeepSync(*task, record, isServerSide)
 		default:
 			log.Errorf("unknown running mode: %s", record.RunningMode)
 		}

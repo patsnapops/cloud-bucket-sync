@@ -27,6 +27,14 @@ type Task struct {
 	Meta          string    `json:"meta" gorm:"type:text" example:"Expires:2022-10-12T00:00:00.000Z#Cache-Control:no-cache#Content-Encoding:gzip#x-cos-meta-x:x"` // 任务元信息
 }
 
+func StringToTime(str string) *time.Time {
+	if str == "" {
+		return nil
+	}
+	t, _ := time.Parse("2006-01-02 15:04:05", str)
+	return &t
+}
+
 func (Task) TableName() string {
 	return "manager_task"
 }

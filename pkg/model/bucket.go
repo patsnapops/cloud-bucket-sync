@@ -52,6 +52,9 @@ func NewInput(recursive bool, include, exclude string, timeBefore, timeAfter str
 type BucketContract interface {
 	ListObjects(profile, bucketName, prefix string, input Input) ([]string, []Object, error)          //5.9s 4.5s 27s 15s
 	ListObjectsWithChan(profile, bucketName, prefix string, input Input, objectsChan chan ChanObject) //使用chan的方式降低内存占用并降低大量数据的等待时间 16s 12s 6s
+	DownloadObject(profile, bucketName, object string) ([]byte, error)
+	UploadObject(profile, bucketName, object string, data []byte) error
+	CopyObject(sourceBucket string, sourceObj Object, targetBucket, targetKey string) error
 	RmObject(profile, bucketName, prefix string) error
 }
 
