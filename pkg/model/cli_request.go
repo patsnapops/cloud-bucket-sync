@@ -2,6 +2,7 @@ package model
 
 type RequestContract interface {
 	TaskQuery(TaskInput) ([]*Task, error)
+	TaskGetByID(taskID string) (*Task, error)
 	TaskApply(args Task) (string, error)
 	TaskExec(taskID, operator, syncMode string) (string, error)
 

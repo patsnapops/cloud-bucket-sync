@@ -13,7 +13,7 @@ type Worker struct {
 	IsDeleted bool      `json:"is_deleted" gorm:"not null;default:false"`
 	Cloud     string    `json:"cloud" gorm:"not null;default:'';"`
 	Region    string    `json:"region" gorm:"not null;default:'';"`
-	Hc        time.Time `json:"hc" gorm:"not null;type:timestamp;default:CURRENT_TIMESTAMP;"`
+	Hc        time.Time `json:"hc" gorm:"not null;type:timestamp;"`
 }
 
 // to response

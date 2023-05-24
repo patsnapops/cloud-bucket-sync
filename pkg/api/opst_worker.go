@@ -4,6 +4,7 @@ import (
 	"cbs/pkg/model"
 
 	"github.com/gin-gonic/gin"
+	"github.com/patsnapops/noop/log"
 )
 
 // @Summary get worker list
@@ -68,6 +69,7 @@ func CreateWorker(c *gin.Context) {
 		c.JSON(500, err.Error())
 		return
 	}
+	log.Debugf("create worker: %+v", req)
 	resp, err := managerIo.CreateWorker(req.Cloud, req.Region)
 	if err != nil {
 		c.JSON(500, err.Error())

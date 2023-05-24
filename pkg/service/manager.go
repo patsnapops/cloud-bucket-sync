@@ -46,30 +46,30 @@ func (s *ManagerService) CheckWorker() {
 
 func (s *ManagerService) restartRecord(checkMap map[string]string, records []*model.Record, workerID string) {
 	for _, record := range records {
-		if record.Status == model.TaskRunning && record.WorkerID == workerID {
+		if record.Status == model.TaskRunning && record.WorkerId == workerID {
 			// 支持task计数，最多保持1个任务的修正，避免重复修复
-			if _, ok := checkMap[record.TaskID]; ok {
-				if checkMap[record.TaskID] == workerID {
+			if _, ok := checkMap[record.TaskId]; ok {
+				if checkMap[record.TaskId] == workerID {
 					continue
 				}
 			}
-			log.Infof("restart record %s, task id: %s", record.ID, record.TaskID)
+			log.Infof("restart record %s, task id: %s", record.Id, record.TaskId)
 			// 修改record的状态为failed
 			record.Status = model.TaskFailed
 			err := s.Client.UpdateRecord(record)
 			if err != nil {
-				log.Errorf("update record %s failed, err: %v", record.ID, err)
+				log.Errorf("update record %s failed, err: %v", record.Id, err)
 				continue
 			}
 			// 修复running的任务
-			recordID, err := s.Client.ExecuteTask(record.TaskID, "system", record.RunningMode)
+			recordID, err := s.Client.ExecuteTask(record.TaskId, "system", record.RunningMode)
 			if err != nil {
-				log.Errorf("restart record %s failed, err: %v", record.ID, err)
+				log.Errorf("restart record %s failed, err: %v", record.Id, err)
 				continue
 			}
-			log.Infof("restart record %s success, new record id: %s", record.ID, recordID)
+			log.Infof("restart record %s success, new record id: %s", record.Id, recordID)
 			// 记录已经修复过的任务
-			checkMap[record.TaskID] = workerID
+			checkMap[record.TaskId] = workerID
 		}
 	}
 }

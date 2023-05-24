@@ -38,6 +38,20 @@ func (r *RequestService) TaskQuery(input model.TaskInput) ([]*model.Task, error)
 	return tasks, nil
 }
 
+// get task by id
+func (r *RequestService) TaskGetByID(taskID string) (*model.Task, error) {
+	var task model.Task
+	data, err := doRequest(r.Url+"/task/"+taskID, "get", nil)
+	if err != nil {
+		return &task, err
+	}
+	err = json.Unmarshal(data, &task)
+	if err != nil {
+		return &task, err
+	}
+	return &task, nil
+}
+
 // create task
 func (r *RequestService) TaskApply(args model.Task) (string, error) {
 	var request req.Param
@@ -83,8 +97,9 @@ func (r *RequestService) TaskExec(taskID, operator, syncMode string) (string, er
 // success,failed,running,notallsuccess
 func (r *RequestService) RecordUpdateStatus(recordID string, status model.Status) error {
 	input := req.Param{
-		"id":     recordID,
-		"action": status,
+		"record_id": recordID,
+		"status":    status,
+		"operator":  "cli",
 	}
 	_, err := doRequest(r.Url+"/action", "post", input)
 	if err != nil {
@@ -101,7 +116,7 @@ func (r *RequestService) RecordUpdate(record *model.Record) error {
 	if err != nil {
 		return err
 	}
-	_, err = doRequest(fmt.Sprintf(r.Url+"/record/%s", record.ID), "put", req)
+	_, err = doRequest(fmt.Sprintf(r.Url+"/record/%s", record.Id), "put", req)
 	if err != nil {
 		return err
 	}
@@ -117,9 +132,6 @@ func (r *RequestService) RecordQuery(input model.RecordInput) ([]model.Record, e
 	err = json.Unmarshal(data, &records)
 	if err != nil {
 		return records, err
-	}
-	if len(records) == 0 {
-		return records, fmt.Errorf("record not found")
 	}
 	return records, nil
 }

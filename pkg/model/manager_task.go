@@ -7,7 +7,7 @@ type Task struct {
 	CreatedAt     time.Time `json:"created_at" gorm:"column:created_at"`
 	UpdatedAt     time.Time `json:"updated_at" gorm:"column:updated_at"`
 	IsDeleted     bool      `json:"is_deleted" gorm:"not null;default:false"`
-	Worker        string    `json:"worker" gorm:"not null;default:''"`                                                                                            // worker节点
+	WorkerTag     string    `json:"worker" gorm:"not null;default:''"`                                                                                            // worker节点,task创建的时候创建
 	Name          string    `json:"name" gorm:"not null" binding:"required"`                                                                                      // 任务名称
 	SourceUrl     string    `json:"source_url" gorm:"not null" binding:"required"`                                                                                // S3URL s3://sourceBucket/key 支持文件和目录结尾
 	TargetUrl     string    `json:"target_url" gorm:"not null" binding:"required"`                                                                                // S3URL s3://destBucket/dir/ 不支持文件结尾 没有/的目录看作目录处理

@@ -11,8 +11,10 @@ import (
 )
 
 type ManagerConfig struct {
-	PG PostgresConfig `mapstructure:"pg"`
+	PG       PostgresConfig `mapstructure:"pg"`
+	Profiles []Profile      `mapstructure:"profiles"`
 }
+
 type PostgresConfig struct {
 	Host     string `mapstructure:"host"`
 	Port     int    `mapstructure:"port"`
@@ -58,8 +60,9 @@ type Profile struct {
 	Name     string `mapstructure:"name"`
 	AK       string `mapstructure:"ak"`
 	SK       string `mapstructure:"sk"`
-	Region   string `mapstructure:"region"`
-	Endpoint string `mapstructure:"endpoint"`
+	Region   string `mapstructure:"region"`   // 云服务的region，决定了同步过程的节点调度
+	Endpoint string `mapstructure:"endpoint"` // 云服务的endpoint
+	Cloud    string `mapstructure:"cloud"`    // 云平台，决定了同步过程的节点调度
 }
 
 func loadConfig(configFile string) error {

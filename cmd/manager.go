@@ -73,8 +73,8 @@ func startGin(managerIo model.ManagerIo) {
 	}, ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	r := ginEngine.Group("/api/v1")
-	api.ApplyRoutes(r, managerIo)
-
+	api.ApplyRoutes(r, managerIo, *managerConfig)
+	log.Infof("manager server start at 0.0.0.0:%s success", port)
 	err := ginEngine.Run(":" + port)
 	if err != nil {
 		log.Panicf("gin start failed %s", err.Error())
@@ -91,7 +91,6 @@ func startSchedule(managerC model.ManagerContract) {
 		managerC.CheckWorker()
 	})
 	c.Start()
-	log.Infof("manager server start at success")
 	select {}
 }
 

@@ -45,11 +45,14 @@ func GetTaskDetail(c *gin.Context) {
 	resp, err := managerIo.QueryTask(model.TaskInput{
 		ID: c.Param("id"),
 	})
+	if len(resp) != 1 {
+		err = fmt.Errorf("task not found")
+	}
 	if err != nil {
 		c.JSON(500, err.Error())
 		return
 	}
-	c.JSON(200, resp)
+	c.JSON(200, resp[0])
 }
 
 // @Summary create task
@@ -67,7 +70,7 @@ func CreateTask(c *gin.Context) {
 		c.JSON(500, err.Error())
 		return
 	}
-	taskID, err := managerIo.CreateTask(&req)
+	taskID, err := managerIo.CreateTask(&req, managerConfig)
 	if err != nil {
 		c.JSON(500, err.Error())
 		return
@@ -150,10 +153,8 @@ func ChangeRecordStatus(c *gin.Context) {
 		c.JSON(500, err.Error())
 		return
 	}
-	err := managerIo.UpdateRecord(&model.Record{
-		ID:     req.RecordID,
-		Status: model.Status(req.Status),
-	})
+	log.Infof("change record status, recordID: %s, status: %s by %s", req.RecordID, req.Status, req.Operator)
+	err := managerIo.UpdateRecordStatus(req.RecordID, model.Status(req.Status))
 	if err != nil {
 		log.Errorf("execute task error: %v", err)
 		c.JSON(500, err.Error())

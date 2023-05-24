@@ -152,7 +152,7 @@ func showTask(cmd *cobra.Command, args []string) {
 			}
 		}
 		recordStatus = fmt.Sprintf("pending:%d,running:%d,success:%d,failed:%d,cancel:%d", pending, running, success, failed, cancel)
-		table.Append([]string{t.ID, strings.ReplaceAll(taskName, " ", "/"), string(t.Worker), string(t.SyncMode), t.Submitter, recordStatus})
+		table.Append([]string{t.ID, strings.ReplaceAll(taskName, " ", "/"), string(t.WorkerTag), string(t.SyncMode), t.Submitter, recordStatus})
 	}
 	table.SetFooter([]string{"", "", "", "", "count", tea.ToString(len(tasks))})
 	table.Render()

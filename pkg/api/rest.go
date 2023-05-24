@@ -1,6 +1,7 @@
 package api
 
 import (
+	"cbs/config"
 	"cbs/pkg/model"
 
 	"github.com/gin-gonic/gin"
@@ -8,12 +9,14 @@ import (
 )
 
 var (
-	managerIo model.ManagerIo
+	managerIo     model.ManagerIo
+	managerConfig config.ManagerConfig
 )
 
-func ApplyRoutes(routerGroup *gin.RouterGroup, managerio model.ManagerIo) {
+func ApplyRoutes(routerGroup *gin.RouterGroup, managerio model.ManagerIo, managerconfig config.ManagerConfig) {
 	// 注册managerio
 	managerIo = managerio
+	managerConfig = managerconfig
 	if managerIo == nil {
 		log.Panic("managerIo is nil")
 	}
@@ -43,7 +46,7 @@ func ApplyRoutes(routerGroup *gin.RouterGroup, managerio model.ManagerIo) {
 		r1.PUT("/:id", UpdateTaskRecord)
 	}
 	// action
-	a := routerGroup.Group("/status")
+	a := routerGroup.Group("/action")
 	{
 		a.POST("", ChangeRecordStatus)
 	}

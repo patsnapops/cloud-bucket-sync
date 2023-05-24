@@ -1,7 +1,10 @@
 package io
 
 import (
+	"cbs/config"
 	"cbs/pkg/model"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/alibabacloud-go/tea/tea"
@@ -28,8 +31,8 @@ func (c *managerClient) QueryRecord(input model.RecordInput) ([]*model.Record, e
 	var taskRecords []*model.Record
 	log.Debugf(tea.Prettify(input))
 	sql := c.db.Model(&taskRecords).Where(&model.Record{
-		TaskID: input.TaskID,
-		ID:     input.RecordID,
+		TaskId: input.TaskID,
+		Id:     input.RecordID,
 		Status: input.Status,
 	})
 	resL := sql.Find(&taskRecords)
@@ -37,7 +40,13 @@ func (c *managerClient) QueryRecord(input model.RecordInput) ([]*model.Record, e
 }
 
 func (c *managerClient) UpdateRecord(record *model.Record) error {
-	return c.db.Save(record).Error
+	recordId := record.Id
+	log.Debugf("update record: %s", tea.Prettify(record))
+	return c.db.Model(&model.Record{}).Where("id = ?", recordId).Updates(record).Error
+}
+
+func (c *managerClient) UpdateRecordStatus(recordID string, status model.Status) error {
+	return c.db.Model(&model.Record{}).Where("id = ?", recordID).Update("status", status).Error
 }
 
 func (c *managerClient) ListWorkers() ([]*model.Worker, error) {
@@ -64,7 +73,12 @@ func (c *managerClient) CreateWorker(cloud, region string) (string, error) {
 		Cloud:  cloud,
 		Region: region,
 	}
-	return worker.ID, c.db.Model(worker).Create(worker).Error
+	log.Debugf("create worker: %s", tea.Prettify(worker))
+	res := c.db.Create(&worker)
+	if res.Error != nil {
+		return "", res.Error
+	}
+	return worker.ID, nil
 }
 
 // 只更新worker的hc时间
@@ -89,17 +103,55 @@ func (c *managerClient) QueryTask(input model.TaskInput) ([]*model.Task, error) 
 	var tasks []*model.Task
 	// log.Debugf(tea.Prettify(input))
 	sql := c.db.Model(&tasks).Where(&model.Task{
-		ID:     input.ID,
-		Name:   input.Name,
-		Worker: input.WorkerTag,
+		ID:        input.ID,
+		Name:      input.Name,
+		WorkerTag: input.WorkerTag,
 	})
 	resL := sql.Find(&tasks)
 	return tasks, resL.Error
 }
 
-func (c *managerClient) CreateTask(task *model.Task) (string, error) {
+func (c *managerClient) CreateTask(task *model.Task, managerConfig config.ManagerConfig) (string, error) {
 	task.ID = uuid.New().String()
+	task.WorkerTag = fmtWorkerTag(task, managerConfig)
 	return task.ID, c.db.Create(task).Error
+}
+
+// fmt task worker tags，依据
+func fmtWorkerTag(task *model.Task, managerConfig config.ManagerConfig) string {
+	var sourceProfile config.Profile
+	var targetProfile config.Profile
+	for _, profile := range managerConfig.Profiles {
+		if profile.Name == task.TargetProfile {
+			targetProfile = profile
+			break
+		}
+	}
+	for _, profile := range managerConfig.Profiles {
+		if profile.Name == task.SourceProfile {
+			sourceProfile = profile
+			break
+		}
+	}
+	if sourceProfile.Name == "" || targetProfile.Name == "" {
+		log.Errorf("source profile or target profile not found, source: %s, target: %s", task.SourceProfile, task.TargetProfile)
+		return ""
+	}
+	sourceRegionPrefix := strings.Split(sourceProfile.Region, "-")[0]
+	targetRegionPrefix := strings.Split(targetProfile.Region, "-")[0]
+	// same cloud and same region
+	if sourceProfile.Cloud == targetProfile.Cloud && sourceRegionPrefix == targetRegionPrefix {
+		return fmt.Sprintf("%s-%s", sourceProfile.Cloud, sourceRegionPrefix)
+	}
+	// same cloud and different region
+	if sourceProfile.Cloud == targetProfile.Cloud && sourceRegionPrefix != targetRegionPrefix {
+		return fmt.Sprintf("%s-%s:%s", sourceProfile.Cloud, sourceRegionPrefix, targetRegionPrefix)
+	}
+	// different cloud and same region
+	if sourceProfile.Cloud != targetProfile.Cloud && sourceRegionPrefix == targetRegionPrefix {
+		return fmt.Sprintf("%s:%s-%s", sourceProfile.Cloud, targetProfile.Cloud, sourceRegionPrefix)
+	}
+	return fmt.Sprintf("%s:%s-%s:%s", sourceProfile.Cloud, targetProfile.Cloud, sourceRegionPrefix, targetRegionPrefix)
 }
 
 func (c *managerClient) UpdateTask(task *model.Task) error {
@@ -120,11 +172,11 @@ func (c *managerClient) ExecuteTask(taskID, operator string, runningMode model.M
 		return "", model.ErrTaskRunning
 	}
 	recordTask := model.Record{
-		ID:          uuid.New().String(),
-		TaskID:      taskID,
+		Id:          uuid.New().String(),
+		TaskId:      taskID,
 		RunningMode: runningMode,
 		Operator:    operator,
 	}
 	resL := c.db.Model(&recordTask).Create(&recordTask)
-	return recordTask.ID, resL.Error
+	return recordTask.Id, resL.Error
 }

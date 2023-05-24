@@ -18,8 +18,8 @@ func init() {
 	rootCmd.AddCommand(workerCmd)
 	workerCmd.AddCommand(showWorkerCmd)
 	workerCmd.AddCommand(runWorker)
-	runWorker.Flags().StringVarP(&region, "region", "r", "cn", "eg: cn, us, eu, ap")
-	runWorker.Flags().StringVarP(&cloud, "cloud", "c", "aws", "eg: aws, azure, aliyun, huawei, tencent, google")
+	runWorker.Flags().StringVarP(&region, "region", "", "cn", "eg: cn, us, eu, ap")
+	runWorker.Flags().StringVarP(&cloud, "cloud", "", "aws", "eg: aws, azure, aliyun, huawei, tencent, google")
 }
 
 var workerCmd = &cobra.Command{
@@ -75,15 +75,20 @@ func run(worker model.Worker) {
 	}
 	for _, record := range records {
 		// 任务准备
-		tasks, err := requestC.TaskQuery(model.TaskInput{ID: record.TaskID})
-		if err != nil {
-			log.Errorf("query task error: %s", err)
+		if record.TaskId == "" {
 			continue
 		}
-		if len(tasks) != 1 {
-			log.Errorf("query task error,or not 1: %s", err)
+		task, err := requestC.TaskGetByID(record.TaskId)
+		if err != nil {
+			log.Errorf("query task %s error: %s", record.TaskId, err)
+			err := requestC.RecordUpdateStatus(record.Id, model.TaskFailed)
+			if err != nil {
+				log.Errorf("update record status error: %s", err)
+			}
+			continue
 		}
-		task := tasks[0]
+		log.Debugf(tea.Prettify(task))
+		log.Debugf(tea.Prettify(record))
 		// 实时同步任务不在同一个worker上重复执行。
 		// 更新任务的workerID
 		if checkIsRunBySameWorker(&record, worker) {
@@ -91,14 +96,14 @@ func run(worker model.Worker) {
 		}
 
 		// 更新record的workerID
-		record.WorkerID = worker.ID
+		record.WorkerId = worker.ID
 		err = requestC.RecordUpdate(&record)
 		if err != nil {
 			log.Errorf("update record workerID error: %s", err)
 			continue
 		}
 		// 更新record
-		err = requestC.RecordUpdateStatus(record.ID, model.TaskRunning)
+		err = requestC.RecordUpdateStatus(record.Id, model.TaskRunning)
 		if err != nil {
 			log.Errorf("update record status error: %s", err)
 			continue
@@ -115,11 +120,13 @@ func run(worker model.Worker) {
 			log.Errorf("unknown running mode: %s", record.RunningMode)
 		}
 	}
+	// update hc
+	requestC.WorkerHcUpdate(worker.ID)
 }
 
 func checkIsRunBySameWorker(record *model.Record, worker model.Worker) bool {
-	if record.WorkerID == worker.ID {
-		log.Errorf("跳过一个worker同时执行任务的情况 %s", record.ID)
+	if record.WorkerId == worker.ID {
+		log.Errorf("跳过一个worker同时执行任务的情况 %s", record.Id)
 		return true
 	}
 	return false
