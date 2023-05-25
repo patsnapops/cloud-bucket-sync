@@ -1,7 +1,14 @@
 package model
 
 import (
+	"crypto/md5"
+	"encoding/base64"
 	"fmt"
+	"hash"
+	"hash/crc64"
+	"io"
+	"log"
+	"os"
 	"time"
 )
 
@@ -104,4 +111,41 @@ func CalculateEvenSplits(size int64) (startIndex, endIndex []int64) {
 		startIndex[j], endIndex[j] = cStart, cEnd
 	}
 	return
+}
+
+// tencent use crc64 ,aws use md5
+func CalculateHash(path string, hashType string) (h string, b string) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", ""
+	}
+	defer f.Close()
+	_, _ = f.Seek(0, 0)
+
+	switch hashType {
+	case "crc64":
+		ecma := crc64.New(crc64.MakeTable(crc64.ECMA))
+		w, _ := ecma.(hash.Hash)
+		if _, err := io.Copy(w, f); err != nil {
+			log.Fatal(err.Error())
+			os.Exit(1)
+		}
+
+		res := ecma.Sum64()
+		h = fmt.Sprintf("%d", res)
+	case "md5":
+		m := md5.New()
+		w, _ := m.(hash.Hash)
+		if _, err := io.Copy(w, f); err != nil {
+			log.Fatal(err.Error())
+			os.Exit(1)
+		}
+
+		res := m.Sum(nil)
+		h = fmt.Sprintf("%x", res)
+		b = base64.StdEncoding.EncodeToString(res)
+	default:
+		return "", ""
+	}
+	return h, b
 }

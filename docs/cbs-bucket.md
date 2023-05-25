@@ -82,3 +82,34 @@ thread-num | 100 | 10000 |640万| 1秒对象|失败个数
 10 | 5.98809868s | 5m4.816449186s | - |16.666个/s 32.89个/s|-
 100 | - | 45.873002895s - |-| 217.39个/s|-
 150 | - | - | 5h37m57.563273064s|  326.08个/s|1700
+
+
+
+#### 同步相关
+```bash
+# 同步本地目录到bucket
+
+
+```
+```bash
+# 同步bucket到本地目录
+[root@zhoushoujianworkspace cloud-bucket-sync]# cbs b sync s3://ops-9554/zhoushoujiantest/popapi/22021225.0 ./123/ --dry-run
+2023-05-25T18:31:36.576+0800    INFO    cmd/bucket.go:306       zhoushoujiantest/popapi/22021225.0 => ./123/22021225.0
+2023-05-25T18:31:36.576+0800    INFO    cmd/bucket.go:306       zhoushoujiantest/popapi/22021225.0.1 => ./123/22021225.0.1
+2023-05-25T18:31:36.576+0800    INFO    cmd/bucket.go:306       zhoushoujiantest/popapi/22021225.0.1.1 => ./123/22021225.0.1.1
+# 下载
+[root@zhoushoujianworkspace cloud-bucket-sync]# cbs b sync s3://ops-9554/p.patsnap.info/static/popAPI.png ./123/
+2023-05-25T18:45:38.658+0800    INFO    cmd/bucket.go:328       download success: ./123/popAPI.png
+# 再次下载会跳过，可以用-f 覆盖
+[root@zhoushoujianworkspace cloud-bucket-sync]# cbs b sync s3://ops-9554/p.patsnap.info/static/popAPI.png ./123/
+2023-05-25T18:45:13.840+0800    INFO    cmd/bucket.go:315       same etag for ./123/popAPI.png, skip.
+```
+```bash
+# 同步bucket到bucket
+[root@zhoushoujianworkspace cloud-bucket-sync]# cbs b sync s3://ops-9554/p.patsnap.info/static/popAPI.png s3://ops-9554/123/
+2023-05-25T18:49:20.854+0800    INFO    io/bucket.go:261        copy s3://ops-9554/p.patsnap.info/static/popAPI.png => s3://ops-9554/123/popAPI.png 82.94 KB
+[root@zhoushoujianworkspace cloud-bucket-sync]# cbs b sync s3://ops-9554/p.patsnap.info/static/popAPI.png s3://ops-9554/123/
+2023-05-25T18:49:26.716+0800    INFO    cmd/bucket.go:282       same etag for 123/popAPI.png, skip.
+[root@zhoushoujianworkspace cloud-bucket-sync]# cbs b sync s3://ops-9554/p.patsnap.info/static/popAPI.png s3://ops-9554/123/ -f
+2023-05-25T18:49:33.425+0800    INFO    io/bucket.go:261        copy s3://ops-9554/p.patsnap.info/static/popAPI.png => s3://ops-9554/123/popAPI.png 82.94 KB
+```

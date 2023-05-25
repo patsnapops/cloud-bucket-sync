@@ -2,12 +2,14 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"cbs/pkg/model"
 	"encoding/csv"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -90,6 +92,7 @@ var syncCmd = &cobra.Command{
 				syncBucketToBucket(profile, args[0], args[1], input)
 			} else if strings.HasPrefix(args[0], "s3://") && !strings.HasPrefix(args[1], "s3://") {
 				// sync bucket to local
+				syncBucketToLocal(profile, args[0], args[1], input)
 			} else if !strings.HasPrefix(args[0], "s3://") && strings.HasPrefix(args[1], "s3://") {
 				// sync local to bucket
 			} else {
@@ -269,8 +272,11 @@ func syncBucketToBucket(profile, sourceUrl, targetUrl string, input model.SyncIn
 			// 没有覆盖要去检查目标文件的etag
 			dstObject, err := bucketIo.HeadObject(profile, dstBucketName, targetKey)
 			if err != nil {
-				log.Errorf("head object error:%s", err.Error())
-				continue
+				// except 404
+				if !strings.Contains(err.Error(), "404") {
+					log.Errorf("head object error:%s", err.Error())
+					continue
+				}
 			}
 			if object.Obj.ETag == dstObject.ETag {
 				log.Infof("same etag for %s, skip.", targetKey)
@@ -282,6 +288,69 @@ func syncBucketToBucket(profile, sourceUrl, targetUrl string, input model.SyncIn
 			log.Errorf("copy object error:%s", err.Error())
 		}
 	}
+}
+
+func syncBucketToLocal(profile, sourceUrl, targetUrl string, input model.SyncInput) {
+	// sync bucket to local
+	bucketName, prefix := model.ParseBucketAndPrefix(sourceUrl)
+	// 获取源所有的key
+	objectsChan := make(chan model.ChanObject, 1000)
+	go bucketIo.ListObjectsWithChan(profile, bucketName, prefix, input.Input, objectsChan)
+	for object := range objectsChan {
+		if object.Error != nil {
+			log.Errorf("list object error:%s", object.Error)
+			continue
+		}
+		if object.Obj == nil {
+			continue
+		}
+		targetKey := model.GetTargetKey(object.Obj.Key, prefix, targetUrl)
+		if input.DryRun {
+			log.Infof("%s => %s", object.Obj.Key, targetKey)
+			log.Debugf("dry run object:%s", tea.Prettify(object))
+			continue
+		}
+		if !input.Force {
+			// 没有覆盖要去检查目标文件的hash
+			hash, base := model.CalculateHash(targetKey, "md5")
+			log.Debugf(object.Obj.ETag, hash, base)
+			if strings.Contains(object.Obj.ETag, hash) {
+				log.Infof("same etag for %s, skip.", targetKey)
+				continue
+			}
+		}
+		body, err := bucketIo.GetObject(profile, bucketName, object.Obj.Key)
+		if err != nil {
+			log.Errorf("download failed:%s", err.Error())
+		}
+		// body 写入文件
+		err = writeToFile(targetKey, &body)
+		if err != nil {
+			panic(err)
+		}
+		log.Infof("download success: %s", targetKey)
+	}
+}
+
+// byte数据写入到 targetkey 本地文件
+func writeToFile(targetKey string, body *[]byte) error {
+	// 创建目录
+	err := os.MkdirAll(filepath.Dir(targetKey), 0755)
+	if err != nil {
+		return err
+	}
+	// 创建文件
+	f, err := os.Create(targetKey)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	// 写入文件
+	_, err = io.Copy(f, bytes.NewReader(*body))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func deleteObject(profile, bucketName, key string, dryRun bool, force bool, deleteChan chan int, f *os.File) {
