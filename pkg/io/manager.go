@@ -61,7 +61,7 @@ func (c *managerClient) QueryWorker(input model.WorkerInput) ([]*model.Worker, e
 		ID:     input.WorkerID,
 		Cloud:  input.Cloud,
 		Region: input.Region,
-	})
+	}).Where("is_deleted = ?", false)
 	resL := sql.Find(&workers)
 	return workers, resL.Error
 }
@@ -98,14 +98,16 @@ func (c *managerClient) QueryTask(input model.TaskInput) ([]*model.Task, error) 
 		Id:        input.ID,
 		Name:      input.Name,
 		WorkerTag: input.WorkerTag,
-	})
+	}).Where("is_deleted = ?", false)
 	resL := sql.Find(&tasks)
 	return tasks, resL.Error
 }
 
 func (c *managerClient) GetTaskById(taskID string) (*model.Task, error) {
 	var task model.Task
-	err := c.db.Model(&task).Where("id = ?", taskID).First(&task).Error
+	err := c.db.Model(&task).Where(model.Task{
+		Id: taskID,
+	}).Where("is_deleted = ?", false).First(&task).Error
 	return &task, err
 }
 
@@ -165,7 +167,11 @@ func (c *managerClient) DeleteTask(taskID string) error {
 // 检查同一个taskid的只能存在一个running或者一个pending的record
 func (c *managerClient) ExecuteTask(taskID, operator, runningMode string) (string, error) {
 	records := []model.Record{}
-	c.db.Model(&model.Record{}).Where("task_id = ? and status in (?)", taskID, []model.Status{model.TaskRunning, model.TaskPending}).Find(&records)
+	err := c.db.Model(&model.Record{}).Where("task_id = ? and status in (?)", taskID,
+		[]model.Status{model.TaskRunning, model.TaskPending}).Find(&records).Error
+	if err != nil {
+		return "", err
+	}
 	if len(records) > 0 {
 		return "", model.ErrTaskRunning
 	}

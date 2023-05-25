@@ -42,7 +42,7 @@ var runWorker = &cobra.Command{
 	Long:    "\nyou know for start a worker!",
 	Run: func(cmd *cobra.Command, args []string) {
 		initApp()
-		workerC = service.NewWorkerService(bucketC)
+		workerC = service.NewWorkerService(bucketIo)
 		switch len(args) {
 		case 0:
 			runWorkerCmd(cmd, args)

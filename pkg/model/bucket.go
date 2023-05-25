@@ -1,10 +1,12 @@
 package model
 
 import (
+	"path"
 	"strings"
 	"time"
 
 	"github.com/alibabacloud-go/tea/tea"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/patsnapops/noop/log"
 )
 
@@ -15,6 +17,12 @@ type Input struct {
 	TimeBefore *time.Time // 2023-03-01 21:26:30
 	TimeAfter  *time.Time // 1992-03-01 21:26:30
 	Limit      int64
+}
+
+type SyncInput struct {
+	Input
+	Force  bool
+	DryRun bool
 }
 
 func NewInput(recursive bool, include, exclude string, timeBefore, timeAfter string, limit int64) Input {
@@ -49,19 +57,29 @@ func NewInput(recursive bool, include, exclude string, timeBefore, timeAfter str
 	return input
 }
 
-type BucketContract interface {
-	ListObjects(profile, bucketName, prefix string, input Input) ([]string, []Object, error)          //5.9s 4.5s 27s 15s
-	ListObjectsWithChan(profile, bucketName, prefix string, input Input, objectsChan chan ChanObject) //使用chan的方式降低内存占用并降低大量数据的等待时间 16s 12s 6s
-	DownloadObject(profile, bucketName, object string) ([]byte, error)
-	UploadObject(profile, bucketName, object string, data []byte) error
-	CopyObject(sourceBucket string, sourceObj Object, targetBucket, targetKey string) error
-	RmObject(profile, bucketName, prefix string) error
+type ChData struct {
+	Body      []byte
+	PartIndex int64
+	Err       error
 }
 
 type BucketIo interface {
+	HeadObject(profile, bucketName, object string) (Object, error)
+	GetObject(profile, bucketName, object string) ([]byte, error)
+	MutiDownloadObject(objectSize int64, sourceKey, sourceEtag string, ch chan<- *ChData)
+
 	ListObjects(profile, bucketName, prefix string, input Input) ([]string, []Object, error)
 	ListObjectsWithChan(profile, bucketName, prefix string, input Input, objectsChan chan ChanObject) //使用chan的方式降低内存占用并降低大量数据的等待时间
+
 	RmObject(profile, bucketName, object string) error
+
+	UploadObject(profile, bucketName, object string, data []byte) error
+
+	CopyObjectV1(profile, sourceBucket string, sourceObj Object, targetBucket, targetKey string) error // 该接口实现自动判断是否需要分片拷贝
+
+	CreateMutiUpload(profile, bucketName, object string) (string, error)
+	UploadPart(profile, bucketName, object, copySource, copySourceRange, uploadId string, partNumber int64) (*s3.CompletedPart, error)
+	ComplateMutiPartUpload(profile, bucketName, object, uploadId string, completed_parts []*s3.CompletedPart) error
 }
 
 type Object struct {
@@ -118,4 +136,39 @@ func ListObjectsWithFilter(key Object, input Input) bool {
 		return false
 	}
 	return true
+}
+
+// turn s3://bucket/prefix to bucket and prefix
+func ParseBucketAndPrefix(s3Path string) (bucket, prefix string) {
+	bucket = strings.TrimPrefix(s3Path, "s3://")
+	bucketS := strings.Split(bucket, "/")
+	bucket = bucketS[0]
+	if len(bucketS) > 1 {
+		prefix = strings.Join(bucketS[1:], "/")
+	} else {
+		prefix = ""
+	}
+	log.Debugf("bucket: %s, prefix: %s", bucket, prefix)
+	return
+}
+
+// 同步模式计算目标对象的key，依据原本的KEY和原本的前缀，以及目标前缀
+func GetTargetKey(key, prefix, targetPrefix string) string {
+	if prefix == "" {
+		return targetPrefix + key
+	}
+	fileName := path.Base(prefix)
+	prefix = strings.TrimSuffix(prefix, fileName)
+	if strings.HasSuffix(prefix, "/") {
+		// 目录同步
+		return targetPrefix + strings.TrimPrefix(key, prefix)
+	} else {
+		// 文件同步，支持自动补上文件名字
+		// targetPrefix = strings.TrimPrefix(targetPrefix, "/")
+		if strings.HasPrefix(strings.TrimPrefix(key, prefix), "/") {
+			// 目标前缀是目录，且key是以/开头的，需要去掉/
+			return targetPrefix + strings.TrimPrefix(key, prefix)[1:]
+		}
+		return targetPrefix + strings.TrimPrefix(key, prefix)
+	}
 }

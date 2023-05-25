@@ -39,6 +39,7 @@ var (
 func init() {
 	bucketCmd.AddCommand(rmCmd)
 	bucketCmd.AddCommand(lsCmd)
+	bucketCmd.AddCommand(syncCmd)
 
 	bucketCmd.PersistentFlags().StringVarP(&profile, "profile", "p", "default", "profile name")
 	bucketCmd.PersistentFlags().Int64VarP(&limit, "limit", "l", 0, "limit")
@@ -48,6 +49,8 @@ func init() {
 	bucketCmd.PersistentFlags().StringVarP(&timeBefore, "time-before", "b", "", "2023-03-01 00:00:00")
 	bucketCmd.PersistentFlags().StringVarP(&timeAfter, "time-after", "a", "", "1992-03-01 00:00:00")
 	bucketCmd.PersistentFlags().Int64VarP(&queue, "queue", "q", 0, "queue")
+
+	syncCmd.Flags().BoolVarP(&force, "force", "f", false, "force")
 
 	rmCmd.Flags().BoolVarP(&force, "force", "f", false, "force")
 	rmCmd.Flags().Int64VarP(&threadNum, "thread-num", "t", 1, "thread num")
@@ -68,6 +71,36 @@ var bucketCmd = &cobra.Command{
 	},
 }
 
+var syncCmd = &cobra.Command{
+	Use:  "sync",
+	Long: "sync bucket or object with s3_url must start with s3://",
+	Run: func(cmd *cobra.Command, args []string) {
+		initApp()
+		input := model.SyncInput{
+			Input:  model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit),
+			Force:  force,
+			DryRun: dryRun,
+		}
+
+		log.Debugf(tea.Prettify(input))
+		switch len(args) {
+		case 2:
+			if strings.HasPrefix(args[0], "s3://") && strings.HasPrefix(args[1], "s3://") {
+				// sync bucket to bucket
+				syncBucketToBucket(profile, args[0], args[1], input)
+			} else if strings.HasPrefix(args[0], "s3://") && !strings.HasPrefix(args[1], "s3://") {
+				// sync bucket to local
+			} else if !strings.HasPrefix(args[0], "s3://") && strings.HasPrefix(args[1], "s3://") {
+				// sync local to bucket
+			} else {
+				cmd.Printf("s3_url must start with s3://")
+			}
+		default:
+			cmd.Help()
+		}
+	},
+}
+
 var lsCmd = &cobra.Command{
 	Use:  "ls",
 	Long: "ls bucket or object with s3_url must start with s3://",
@@ -77,14 +110,14 @@ var lsCmd = &cobra.Command{
 		log.Debugf(tea.Prettify(input))
 		switch len(args) {
 		case 1:
-			bucketName, prefix := parseBucketAndPrefix(args[0])
+			bucketName, prefix := model.ParseBucketAndPrefix(args[0])
 			timeStart := time.Now()
 			if queue != 0 {
 				objectsChan := make(chan model.ChanObject, queue)
 				// 放弃table的展示，因为他不能体现chan的特性，会等到所有结果出来一起打印。
 				var totalSize int64
 				var totalObjects int64
-				go bucketC.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
+				go bucketIo.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
 				for objectChan := range objectsChan {
 					if objectChan.Error != nil {
 						panic(objectChan.Error)
@@ -96,16 +129,16 @@ var lsCmd = &cobra.Command{
 						}
 						fmt.Printf("%s\t%s\t%22s\t%10s\t%34s\n",
 							objectChan.Obj.Key, "", objectChan.Obj.LastModified.UTC().Format("2006-01-02 15:04:05"),
-							FormatSize(objectChan.Obj.Size), objectChan.Obj.ETag)
+							model.FormatSize(objectChan.Obj.Size), objectChan.Obj.ETag)
 					}
 					if objectChan.Dir != nil {
 						fmt.Printf("%s\t%s\t%s\t%s\t%s\n", *objectChan.Dir, "dir", "", "", "")
 					}
 					totalObjects++
 				}
-				fmt.Printf("\nTotal: %d, Size: %s, Cost: %s\n", totalObjects, FormatSize(totalSize), time.Since(timeStart))
+				fmt.Printf("\nTotal: %d, Size: %s, Cost: %s\n", totalObjects, model.FormatSize(totalSize), time.Since(timeStart))
 			} else {
-				dirs, objects, err := bucketC.ListObjects(profile, bucketName, prefix, input)
+				dirs, objects, err := bucketIo.ListObjects(profile, bucketName, prefix, input)
 				if err != nil {
 					panic(err)
 				}
@@ -118,10 +151,10 @@ var lsCmd = &cobra.Command{
 					table.Append([]string{dir, "dir", "", "", ""})
 				}
 				for _, object := range objects {
-					table.Append([]string{object.Key, "", object.LastModified.UTC().Format("2006-01-02 15:04:05"), FormatSize(object.Size), object.ETag})
+					table.Append([]string{object.Key, "", object.LastModified.UTC().Format("2006-01-02 15:04:05"), model.FormatSize(object.Size), object.ETag})
 					totalSize += object.Size
 				}
-				table.SetFooter([]string{"", "", "Total Objects: ", FormatSize(totalSize), fmt.Sprintf("%d", len(objects))})
+				table.SetFooter([]string{"", "", "Total Objects: ", model.FormatSize(totalSize), fmt.Sprintf("%d", len(objects))})
 				table.Render()
 				log.Debugf("list objects cost %s", time.Since(timeStart))
 			}
@@ -151,7 +184,7 @@ var rmCmd = &cobra.Command{
 		switch len(args) {
 		case 1:
 			timeStart := time.Now()
-			bucketName, prefix := parseBucketAndPrefix(args[0])
+			bucketName, prefix := model.ParseBucketAndPrefix(args[0])
 			// 默认使用chan方式删除
 			if queue == 0 {
 				queue = 1000
@@ -168,7 +201,7 @@ var rmCmd = &cobra.Command{
 				if dir != "" {
 					go readObjectsFromDir(dir, input, objectsChan)
 				} else {
-					go bucketC.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
+					go bucketIo.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
 				}
 			}
 			// 实现多线程删除，当force为true时，不需要等待确认
@@ -189,7 +222,7 @@ var rmCmd = &cobra.Command{
 						break
 					}
 					deleteChan <- 1
-					go deleteObject(bucketC, bucketName, objectChan.Obj.Key, dryRun, force, deleteChan, f)
+					go deleteObject(profile, bucketName, objectChan.Obj.Key, dryRun, force, deleteChan, f)
 				}
 				totalObjects++
 			}
@@ -199,7 +232,7 @@ var rmCmd = &cobra.Command{
 				}
 			}
 			defer func() {
-				fmt.Printf("\nTotal Objects: %d, Total Size: %s, Cost Time: %s\n", totalObjects, FormatSize(totalSize), time.Since(timeStart))
+				fmt.Printf("\nTotal Objects: %d, Total Size: %s, Cost Time: %s\n", totalObjects, model.FormatSize(totalSize), time.Since(timeStart))
 			}()
 		default:
 			cmd.Help()
@@ -207,7 +240,51 @@ var rmCmd = &cobra.Command{
 	},
 }
 
-func deleteObject(bucketC model.BucketContract, bucketName, key string, dryRun bool, force bool, deleteChan chan int, f *os.File) {
+func syncBucketToBucket(profile, sourceUrl, targetUrl string, input model.SyncInput) {
+	// sync bucket to bucket
+	srcBucketName, srcPrefix := model.ParseBucketAndPrefix(sourceUrl)
+	dstBucketName, dstPrefix := model.ParseBucketAndPrefix(targetUrl)
+	// 获取源所有的key
+	objectsChan := make(chan model.ChanObject, 1000)
+	go bucketIo.ListObjectsWithChan(profile, srcBucketName, srcPrefix, input.Input, objectsChan)
+	for object := range objectsChan {
+		log.Debugf("object:%s", tea.Prettify(object))
+		if object.Error != nil {
+			log.Errorf("list object error:%s", object.Error)
+			continue
+		}
+		if object.Obj == nil {
+			continue
+		}
+		targetKey := model.GetTargetKey(object.Obj.Key, srcPrefix, dstPrefix)
+		if srcBucketName == dstBucketName && object.Obj.Key == targetKey {
+			continue
+		}
+		if input.DryRun {
+			log.Infof("%s => %s", object.Obj.Key, targetKey)
+			log.Infof("dry run object:%s", tea.Prettify(object))
+			continue
+		}
+		if !input.Force {
+			// 没有覆盖要去检查目标文件的etag
+			dstObject, err := bucketIo.HeadObject(profile, dstBucketName, targetKey)
+			if err != nil {
+				log.Errorf("head object error:%s", err.Error())
+				continue
+			}
+			if object.Obj.ETag == dstObject.ETag {
+				log.Infof("same etag for %s, skip.", targetKey)
+				continue
+			}
+		}
+		err := bucketIo.CopyObjectV1(profile, srcBucketName, *object.Obj, dstBucketName, targetKey)
+		if err != nil {
+			log.Errorf("copy object error:%s", err.Error())
+		}
+	}
+}
+
+func deleteObject(profile, bucketName, key string, dryRun bool, force bool, deleteChan chan int, f *os.File) {
 	defer func() {
 		<-deleteChan
 	}()
@@ -224,40 +301,12 @@ func deleteObject(bucketC model.BucketContract, bucketName, key string, dryRun b
 			return
 		}
 	}
-	err := bucketC.RmObject(profile, bucketName, key)
+	err := bucketIo.RmObject(profile, bucketName, key)
 	if err != nil {
 		fmt.Printf("delete %s/%s failed: %s\n", bucketName, key, err.Error())
 		f.WriteString(key + " " + err.Error() + "\n")
 	} else {
 		fmt.Printf("delete %s/%s success\n", bucketName, key)
-	}
-}
-
-// turn s3://bucket/prefix to bucket and prefix
-func parseBucketAndPrefix(s3Path string) (bucket, prefix string) {
-	bucket = strings.TrimPrefix(s3Path, "s3://")
-	bucketS := strings.Split(bucket, "/")
-	bucket = bucketS[0]
-	if len(bucketS) > 1 {
-		prefix = strings.Join(bucketS[1:], "/")
-	} else {
-		prefix = ""
-	}
-	log.Debugf("bucket: %s, prefix: %s", bucket, prefix)
-	return
-}
-
-func FormatSize(b int64) string {
-	if b < 1024 {
-		return fmt.Sprintf("%d B", b)
-	} else if b < 1024*1024 {
-		return fmt.Sprintf("%.2f KB", float64(b)/1024)
-	} else if b < 1024*1024*1024 {
-		return fmt.Sprintf("%.2f MB", float64(b)/(1024*1024))
-	} else if b < 1024*1024*1024*1024 {
-		return fmt.Sprintf("%.2f GB", float64(b)/(1024*1024*1024))
-	} else {
-		return fmt.Sprintf("%.2f TB", float64(b)/(1024*1024*1024*1024))
 	}
 }
 

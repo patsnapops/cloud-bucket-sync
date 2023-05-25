@@ -21,7 +21,7 @@ var (
 	workerConfig  *config.WorkerConfig
 
 	requestC model.RequestContract
-	bucketC  model.BucketContract
+	bucketIo model.BucketIo
 )
 
 func init() {
@@ -64,7 +64,7 @@ func initApp() {
 	workerConfig = config.LoadWorkerConfig(configPath)
 	// log.Debugf(tea.Prettify(workerConfig))
 	// init Service
+	bucketIo = io.NewBucketClient(cliConfig.Profiles)
 	requestC = service.NewRequestService(cliConfig.Manager)
-	bucketC = service.NewBucketService(io.NewBucketClient(cliConfig.Profiles))
 	log.Debugf("init app success")
 }

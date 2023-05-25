@@ -58,13 +58,3 @@ func (t *TaskInput) ToQuery() string {
 	}
 	return joinQuery(query)
 }
-
-// args to ObjectFilter
-func (t Task) ToFilter() *ObjectFilter {
-	return &ObjectFilter{
-		Include:    t.Include,
-		Exclude:    t.Exclude,
-		TimeBefore: t.TimeBefore,
-		TimeAfter:  t.TimeAfter,
-	}
-}
