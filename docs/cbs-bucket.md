@@ -83,6 +83,9 @@ thread-num | 100 | 10000 |640万| 1秒对象|失败个数
 100 | - | 45.873002895s - |-| 217.39个/s|-
 150 | - | - | 5h37m57.563273064s|  326.08个/s|1700
 
+##### 最佳实践
+- 删除3亿数据，开了150个线程，平均每天删除三千万对象，耗时2周左右。 更多的线程会导致失败率增加，建议不要超过150个线程。（aws api限制）
+![](./s3_delete.png)
 
 
 #### 同步相关
@@ -92,17 +95,14 @@ thread-num | 100 | 10000 |640万| 1秒对象|失败个数
 
 ```
 ```bash
-# 同步bucket到本地目录
-[root@zhoushoujianworkspace cloud-bucket-sync]# cbs b sync s3://ops-9554/zhoushoujiantest/popapi/22021225.0 ./123/ --dry-run
-2023-05-25T18:31:36.576+0800    INFO    cmd/bucket.go:306       zhoushoujiantest/popapi/22021225.0 => ./123/22021225.0
-2023-05-25T18:31:36.576+0800    INFO    cmd/bucket.go:306       zhoushoujiantest/popapi/22021225.0.1 => ./123/22021225.0.1
-2023-05-25T18:31:36.576+0800    INFO    cmd/bucket.go:306       zhoushoujiantest/popapi/22021225.0.1.1 => ./123/22021225.0.1.1
 # 下载
 [root@zhoushoujianworkspace cloud-bucket-sync]# cbs b sync s3://ops-9554/p.patsnap.info/static/popAPI.png ./123/
 2023-05-25T18:45:38.658+0800    INFO    cmd/bucket.go:328       download success: ./123/popAPI.png
 # 再次下载会跳过，可以用-f 覆盖
 [root@zhoushoujianworkspace cloud-bucket-sync]# cbs b sync s3://ops-9554/p.patsnap.info/static/popAPI.png ./123/
 2023-05-25T18:45:13.840+0800    INFO    cmd/bucket.go:315       same etag for ./123/popAPI.png, skip.
+# 下载大文件
+
 ```
 ```bash
 # 同步bucket到bucket
@@ -112,4 +112,19 @@ thread-num | 100 | 10000 |640万| 1秒对象|失败个数
 2023-05-25T18:49:26.716+0800    INFO    cmd/bucket.go:282       same etag for 123/popAPI.png, skip.
 [root@zhoushoujianworkspace cloud-bucket-sync]# cbs b sync s3://ops-9554/p.patsnap.info/static/popAPI.png s3://ops-9554/123/ -f
 2023-05-25T18:49:33.425+0800    INFO    io/bucket.go:261        copy s3://ops-9554/p.patsnap.info/static/popAPI.png => s3://ops-9554/123/popAPI.png 82.94 KB
+```
+```bash
+# 同步bucket到bucket但是不是同一个profile，需要用到下载和本地上传
+
+# 没有用到分片下载上传特性，即文件小于5GB
+[root@zhoushoujianworkspace cloud-bucket-sync]# go run main.go b sync s3://ops-9554/zhoushoujiantest/123/22021225.0.1 s3://zhoushoujiantest/123/one --profile_to us0066
+2023-05-26T14:08:52.634+0800    INFO    io/bucket.go:455        copy s3://ops-9554/zhoushoujiantest/123/22021225.0.1 => s3://zhoushoujiantest/123/one22021225.0.1 50.00 MB
+
+# 用到了分片下载上传特性，即文件大于5GB (这里模拟修改了最大指标，5GB换成5MB)
+[root@zhoushoujianworkspace cloud-bucket-sync]# go run main.go b sync s3://ops-9554/zhoushoujiantest/123/22021225.0.1.1 s3://zhoushoujiantest/123/ --profile_to us0066
+2023-05-26T14:06:38.611+0800    INFO    io/bucket.go:482        UploadPart s3://zhoushoujiantest/123/22021225.0.1.1 1/4
+2023-05-26T14:06:50.214+0800    INFO    io/bucket.go:482        UploadPart s3://zhoushoujiantest/123/22021225.0.1.1 2/4
+2023-05-26T14:07:03.111+0800    INFO    io/bucket.go:482        UploadPart s3://zhoushoujiantest/123/22021225.0.1.1 3/4
+2023-05-26T14:07:19.456+0800    INFO    io/bucket.go:482        UploadPart s3://zhoushoujiantest/123/22021225.0.1.1 4/4
+2023-05-26T14:07:20.172+0800    INFO    io/bucket.go:488        muticopy s3://ops-9554/zhoushoujiantest/123/22021225.0.1.1 => s3://zhoushoujiantest/123/22021225.0.1.1 50.00 MB
 ```

@@ -20,15 +20,16 @@ import (
 )
 
 var (
-	profile    string
-	limit      int64
-	recursive  bool
-	include    string
-	exclude    string
-	timeBefore string
-	timeAfter  string
-	queue      int64
-	threadNum  int64
+	profileFrom string
+	profileTo   string
+	limit       int64
+	recursive   bool
+	include     string
+	exclude     string
+	timeBefore  string
+	timeAfter   string
+	queue       int64
+	threadNum   int64
 )
 var (
 	dryRun    bool
@@ -43,7 +44,8 @@ func init() {
 	bucketCmd.AddCommand(lsCmd)
 	bucketCmd.AddCommand(syncCmd)
 
-	bucketCmd.PersistentFlags().StringVarP(&profile, "profile", "p", "default", "profile name")
+	bucketCmd.PersistentFlags().StringVarP(&profileFrom, "profile_from", "p", "default", "profile name")
+	bucketCmd.PersistentFlags().StringVarP(&profileTo, "profile_to", "", "", "profile name")
 	bucketCmd.PersistentFlags().Int64VarP(&limit, "limit", "l", 0, "limit")
 	bucketCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "r", false, "recursive")
 	bucketCmd.PersistentFlags().StringVarP(&include, "include", "i", "", "txt or txt,csv")
@@ -89,10 +91,10 @@ var syncCmd = &cobra.Command{
 		case 2:
 			if strings.HasPrefix(args[0], "s3://") && strings.HasPrefix(args[1], "s3://") {
 				// sync bucket to bucket
-				syncBucketToBucket(profile, args[0], args[1], input)
+				syncBucketToBucket(args[0], args[1], input)
 			} else if strings.HasPrefix(args[0], "s3://") && !strings.HasPrefix(args[1], "s3://") {
 				// sync bucket to local
-				syncBucketToLocal(profile, args[0], args[1], input)
+				syncBucketToLocal(args[0], args[1], input)
 			} else if !strings.HasPrefix(args[0], "s3://") && strings.HasPrefix(args[1], "s3://") {
 				// sync local to bucket
 			} else {
@@ -120,7 +122,7 @@ var lsCmd = &cobra.Command{
 				// 放弃table的展示，因为他不能体现chan的特性，会等到所有结果出来一起打印。
 				var totalSize int64
 				var totalObjects int64
-				go bucketIo.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
+				go bucketIo.ListObjectsWithChan(profileFrom, bucketName, prefix, input, objectsChan)
 				for objectChan := range objectsChan {
 					if objectChan.Error != nil {
 						panic(objectChan.Error)
@@ -141,7 +143,7 @@ var lsCmd = &cobra.Command{
 				}
 				fmt.Printf("\nTotal: %d, Size: %s, Cost: %s\n", totalObjects, model.FormatSize(totalSize), time.Since(timeStart))
 			} else {
-				dirs, objects, err := bucketIo.ListObjects(profile, bucketName, prefix, input)
+				dirs, objects, err := bucketIo.ListObjects(profileFrom, bucketName, prefix, input)
 				if err != nil {
 					panic(err)
 				}
@@ -204,7 +206,7 @@ var rmCmd = &cobra.Command{
 				if dir != "" {
 					go readObjectsFromDir(dir, input, objectsChan)
 				} else {
-					go bucketIo.ListObjectsWithChan(profile, bucketName, prefix, input, objectsChan)
+					go bucketIo.ListObjectsWithChan(profileFrom, bucketName, prefix, input, objectsChan)
 				}
 			}
 			// 实现多线程删除，当force为true时，不需要等待确认
@@ -225,7 +227,7 @@ var rmCmd = &cobra.Command{
 						break
 					}
 					deleteChan <- 1
-					go deleteObject(profile, bucketName, objectChan.Obj.Key, dryRun, force, deleteChan, f)
+					go deleteObject(profileFrom, bucketName, objectChan.Obj.Key, dryRun, force, deleteChan, f)
 				}
 				totalObjects++
 			}
@@ -243,17 +245,17 @@ var rmCmd = &cobra.Command{
 	},
 }
 
-func syncBucketToBucket(profile, sourceUrl, targetUrl string, input model.SyncInput) {
+func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 	// sync bucket to bucket
 	srcBucketName, srcPrefix := model.ParseBucketAndPrefix(sourceUrl)
 	dstBucketName, dstPrefix := model.ParseBucketAndPrefix(targetUrl)
 	// 获取源所有的key
 	objectsChan := make(chan model.ChanObject, 1000)
-	go bucketIo.ListObjectsWithChan(profile, srcBucketName, srcPrefix, input.Input, objectsChan)
+	go bucketIo.ListObjectsWithChan(profileFrom, srcBucketName, srcPrefix, input.Input, objectsChan)
 	for object := range objectsChan {
 		log.Debugf("object:%s", tea.Prettify(object))
 		if object.Error != nil {
-			log.Errorf("list object error:%s", object.Error)
+			log.Errorf("list object error:%s", *object.Error)
 			continue
 		}
 		if object.Obj == nil {
@@ -270,7 +272,7 @@ func syncBucketToBucket(profile, sourceUrl, targetUrl string, input model.SyncIn
 		}
 		if !input.Force {
 			// 没有覆盖要去检查目标文件的etag
-			dstObject, err := bucketIo.HeadObject(profile, dstBucketName, targetKey)
+			dstObject, err := bucketIo.HeadObject(profileTo, dstBucketName, targetKey)
 			if err != nil {
 				// except 404
 				if !strings.Contains(err.Error(), "404") {
@@ -279,23 +281,31 @@ func syncBucketToBucket(profile, sourceUrl, targetUrl string, input model.SyncIn
 				}
 			}
 			if object.Obj.ETag == dstObject.ETag {
-				log.Infof("same etag for %s, skip.", targetKey)
+				log.Infof("same etag for %s/%s, skip.", dstBucketName, targetKey)
 				continue
 			}
 		}
-		err := bucketIo.CopyObjectV1(profile, srcBucketName, *object.Obj, dstBucketName, targetKey)
-		if err != nil {
-			log.Errorf("copy object error:%s", err.Error())
+		if profileFrom != profileTo {
+			err := bucketIo.CopyObjectClientSide(profileFrom, profileTo, srcBucketName, *object.Obj, dstBucketName, targetKey)
+			if err != nil {
+				log.Errorf("copy object error:%s", err.Error())
+			}
+		} else {
+			// 同region直接copy
+			err := bucketIo.CopyObjectServerSide(profileFrom, srcBucketName, *object.Obj, dstBucketName, targetKey)
+			if err != nil {
+				log.Errorf("copy object error:%s", err.Error())
+			}
 		}
 	}
 }
 
-func syncBucketToLocal(profile, sourceUrl, targetUrl string, input model.SyncInput) {
+func syncBucketToLocal(sourceUrl, targetUrl string, input model.SyncInput) {
 	// sync bucket to local
 	bucketName, prefix := model.ParseBucketAndPrefix(sourceUrl)
 	// 获取源所有的key
 	objectsChan := make(chan model.ChanObject, 1000)
-	go bucketIo.ListObjectsWithChan(profile, bucketName, prefix, input.Input, objectsChan)
+	go bucketIo.ListObjectsWithChan(profileFrom, bucketName, prefix, input.Input, objectsChan)
 	for object := range objectsChan {
 		if object.Error != nil {
 			log.Errorf("list object error:%s", object.Error)
@@ -319,7 +329,7 @@ func syncBucketToLocal(profile, sourceUrl, targetUrl string, input model.SyncInp
 				continue
 			}
 		}
-		body, err := bucketIo.GetObject(profile, bucketName, object.Obj.Key)
+		body, err := bucketIo.GetObject(profileFrom, bucketName, object.Obj.Key)
 		if err != nil {
 			log.Errorf("download failed:%s", err.Error())
 		}

@@ -35,6 +35,7 @@ func NewBucketClient(config []config.Profile) model.BucketIo {
 func newSession(configProfiles []config.Profile) (map[string]*session.Session, error) {
 	sessions := make(map[string]*session.Session)
 	for _, param := range configProfiles {
+		// log.Debugf("new session %s", param.Name)
 		s3_conf := &aws.Config{
 			Credentials: credentials.NewStaticCredentials(param.AK, param.SK, ""),
 			Region:      aws.String(param.Region),
@@ -49,6 +50,7 @@ func newSession(configProfiles []config.Profile) (map[string]*session.Session, e
 			return sessions, err
 		}
 		sessions[param.Name] = sess
+		// log.Debugf("new session %s ", sessions)
 	}
 	return sessions, nil
 
@@ -221,7 +223,7 @@ func (c *bucketClient) ComplateMutiPartUpload(profile, bucketName, object, uploa
 	return fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
 }
 
-// fmt.Sprintf("bytes=%d-%d", src.Start, src.End)
+// 同一个profile下的分片上传，走的后台
 func (c *bucketClient) UploadPart(profile, bucketName, object, copySource, copySourceRange, uploadId string, partNumber int64) (*s3.CompletedPart, error) {
 	if sess, ok := c.sessions[profile]; ok {
 		svc := s3.New(sess)
@@ -245,6 +247,29 @@ func (c *bucketClient) UploadPart(profile, bucketName, object, copySource, copyS
 	return nil, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
 }
 
+func (c *bucketClient) UploadPartWithData(profile, bucketName, object, uploadId string, partNumber int64, data []byte) (*s3.CompletedPart, error) {
+	if sess, ok := c.sessions[profile]; ok {
+		svc := s3.New(sess)
+		input := &s3.UploadPartInput{
+			Bucket:     aws.String(bucketName),
+			Key:        aws.String(object),
+			PartNumber: aws.Int64(partNumber),
+			UploadId:   aws.String(uploadId),
+			Body:       bytes.NewReader(data),
+		}
+		resp, err := svc.UploadPart(input)
+		if err != nil {
+			return nil, err
+		}
+		return &s3.CompletedPart{
+			ETag:       resp.ETag,
+			PartNumber: aws.Int64(partNumber),
+		}, nil
+	}
+	return nil, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
+}
+
+// 处理同地域下的桶拷贝，支持最大单文件5G，超过要使用mutiPartUpload
 func (c *bucketClient) copyObject(profile, sourceBucket string, sourceObj model.Object, targetBucket, targetKey string) error {
 	if sess, ok := c.sessions[profile]; ok {
 		svc := s3.New(sess)
@@ -257,15 +282,117 @@ func (c *bucketClient) copyObject(profile, sourceBucket string, sourceObj model.
 		if err != nil {
 			return err
 		}
-		// 解决destkey /开头问题
 		log.Infof(`copy s3://%s/%s => s3://%s/%s %s`, sourceBucket, sourceObj.Key, targetBucket, strings.TrimPrefix(targetKey, "/"), model.FormatSize(sourceObj.Size))
 		return nil
 	}
 	return fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
 }
 
-// 兼容了大文件自动使用muti
-func (c *bucketClient) CopyObjectV1(profile, sourceBucket string, sourceObj model.Object, targetBucket, targetKey string) error {
+func (c *bucketClient) UploadObject(profile, bucketName, object string, data []byte) error {
+
+	if sess, ok := c.sessions[profile]; ok {
+		svc := s3.New(sess)
+		input := &s3.PutObjectInput{
+			Body:   bytes.NewReader(data),
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(object),
+		}
+		_, err := svc.PutObject(input)
+		if err != nil {
+			return err
+		}
+		// log.Infof(`upload s3://%s/%s %s`, bucketName, strings.TrimPrefix(object, "/"), model.FormatSize(int64(len(data))))
+		return nil
+	}
+	return fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
+}
+
+// 下载完整的文件
+func (c *bucketClient) GetObject(profile, bucketName, object string) ([]byte, error) {
+	if sess, ok := c.sessions[profile]; ok {
+		svc := s3.New(sess)
+		input := &s3.GetObjectInput{
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(object),
+		}
+		resp, err := svc.GetObject(input)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		return ioutil.ReadAll(resp.Body)
+	}
+	return nil, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
+}
+
+// 分片下载对象数据
+func (c *bucketClient) GetObjectPart(profile, bucketName, object string, start, end int64) ([]byte, error) {
+	if sess, ok := c.sessions[profile]; ok {
+		svc := s3.New(sess)
+		input := &s3.GetObjectInput{
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(object),
+			Range:  aws.String(fmt.Sprintf("bytes=%d-%d", start, end)),
+		}
+		resp, err := svc.GetObject(input)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		return ioutil.ReadAll(resp.Body)
+	}
+	return nil, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
+}
+
+func (c *bucketClient) HeadObject(profile, bucketName, object string) (model.Object, error) {
+	if sess, ok := c.sessions[profile]; ok {
+		svc := s3.New(sess)
+		input := &s3.HeadObjectInput{
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(object),
+		}
+		resp, err := svc.HeadObject(input)
+		if err != nil {
+			return model.Object{}, err
+		}
+		return model.Object{
+			Key:          object,
+			Size:         *resp.ContentLength,
+			LastModified: *resp.LastModified,
+			ETag:         *resp.ETag,
+		}, nil
+	}
+	return model.Object{}, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
+}
+
+func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sourceObj model.Object, ch chan<- *model.ChData) {
+	// 文件过大5TB？
+	totalParts := model.PartsRequired(sourceObj.Size)
+	if totalParts > 10000 {
+		log.Errorf("object %s size %d > 5TB, can not download", sourceObj.Key, sourceObj.Size)
+		close(ch)
+	}
+	var partIndex int64 = 0
+	startIdx, endIdx := model.CalculateEvenSplits(sourceObj.Size)
+	// Do we need more parts
+	for j, start := range startIdx {
+		partIndex++
+		Start := start
+		End := endIdx[j]
+		data, err := c.GetObjectPart(profileFrom, sourceBucket, sourceObj.Key, Start, End)
+		ch <- &model.ChData{
+			PartIndex: partIndex,
+			Data:      data,
+			Err:       err,
+		}
+	}
+	close(ch)
+}
+
+// 依据文件大小判断是否需要分片，实现文件的拷贝；
+// profile 必须同时具有sourceBucket和targetBucket的权限，或者指定一方，另一方权限公开读;
+// 全部在云上操作，不需要下载到本地。
+func (c *bucketClient) CopyObjectServerSide(profile, sourceBucket string, sourceObj model.Object, targetBucket, targetKey string) error {
 	var partIndex int64 = 0
 	// 低于5G的数据直接使用copy
 	if sourceObj.Size <= model.MaxPartSize {
@@ -313,59 +440,53 @@ func (c *bucketClient) CopyObjectV1(profile, sourceBucket string, sourceObj mode
 	}
 }
 
-func (c *bucketClient) UploadObject(profile, bucketName, object string, data []byte) error {
-	if sess, ok := c.sessions[profile]; ok {
-		svc := s3.New(sess)
-		input := &s3.PutObjectInput{
-			Body:   bytes.NewReader(data),
-			Bucket: aws.String(bucketName),
-			Key:    aws.String(object),
-		}
-		_, err := svc.PutObject(input)
+// 依据文件大小决定是用PutObject，还是分片上传；这里设置文件大小为5G，超过5G的文件使用分片上传；
+func (c *bucketClient) CopyObjectClientSide(profileFrom, profileTo, sourceBucket string, sourceObj model.Object, targetBucket, targetKey string) error {
+	if sourceObj.Size <= model.MaxPartSize {
+		log.Debugf("file is less than 5G,use copy")
+		data, err := c.GetObject(profileFrom, sourceBucket, sourceObj.Key)
 		if err != nil {
 			return err
 		}
-	}
-	return fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
-}
-
-func (c *bucketClient) GetObject(profile, bucketName, object string) ([]byte, error) {
-	if sess, ok := c.sessions[profile]; ok {
-		svc := s3.New(sess)
-		input := &s3.GetObjectInput{
-			Bucket: aws.String(bucketName),
-			Key:    aws.String(object),
-		}
-		resp, err := svc.GetObject(input)
+		err = c.UploadObject(profileTo, targetBucket, targetKey, data)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		defer resp.Body.Close()
-		return ioutil.ReadAll(resp.Body)
-	}
-	return nil, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
-}
+		log.Infof(`copy s3://%s/%s => s3://%s/%s %s`, sourceBucket, sourceObj.Key, targetBucket, strings.TrimPrefix(targetKey, "/"), model.FormatSize(sourceObj.Size))
+		return nil
+	} else {
+		log.Debugf("file is more than 5G,use muticopy")
+		// 文件过大5TB？
+		var partIndex int64 = 0
+		totalParts := model.PartsRequired(sourceObj.Size)
+		// Do we need more parts than we are allowed?
+		if totalParts > model.MaxPartsCount {
+			return fmt.Errorf("Your proposed compose object requires more than %d parts", model.MaxPartsCount)
+		}
 
-func (c *bucketClient) HeadObject(profile, bucketName, object string) (model.Object, error) {
-	if sess, ok := c.sessions[profile]; ok {
-		svc := s3.New(sess)
-		input := &s3.HeadObjectInput{
-			Bucket: aws.String(bucketName),
-			Key:    aws.String(object),
-		}
-		resp, err := svc.HeadObject(input)
+		upload_id, err := c.CreateMutiUpload(profileTo, targetBucket, targetKey)
 		if err != nil {
-			return model.Object{}, err
+			return err
 		}
-		return model.Object{
-			Key:          object,
-			Size:         *resp.ContentLength,
-			LastModified: *resp.LastModified,
-			ETag:         *resp.ETag,
-		}, nil
+		ch := make(chan *model.ChData, 100)
+		go c.MutiDownloadObject(profileFrom, sourceBucket, sourceObj, ch)
+		var completed_parts []*s3.CompletedPart
+		for mutiData := range ch {
+			partIndex++
+			part, err := c.UploadPartWithData(profileTo, targetBucket, targetKey, upload_id, partIndex, mutiData.Data)
+			if err != nil {
+				log.Fatal(err.Error())
+				break
+			}
+			completed_parts = append(completed_parts, part)
+			log.Infof(`UploadPart s3://%s/%s %d/%d`, targetBucket, targetKey, partIndex, totalParts)
+		}
+		err = c.ComplateMutiPartUpload(profileTo, targetBucket, targetKey, upload_id, completed_parts)
+		if err != nil {
+			return err
+		} else {
+			log.Infof(`muticopy s3://%s/%s => s3://%s/%s %s`, sourceBucket, sourceObj.Key, targetBucket, targetKey, model.FormatSize(sourceObj.Size))
+			return nil
+		}
 	}
-	return model.Object{}, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
-}
-
-func (c *bucketClient) MutiDownloadObject(objectSize int64, sourceKey, sourceEtag string, ch chan<- *model.ChData) {
 }

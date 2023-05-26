@@ -33,7 +33,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record, isServerS
 		if *task.IsOverwrite {
 			// overwrite
 			if isServerSide {
-				err := w.BucketIo.CopyObjectV1(task.SourceProfile, sourceBucket, *object.Obj, targetBucket, targetPrefix+object.Obj.Key)
+				err := w.BucketIo.CopyObjectServerSide(task.SourceProfile, sourceBucket, *object.Obj, targetBucket, targetPrefix+object.Obj.Key)
 				if err != nil {
 					log.Errorf("copy object error: %v", err)
 				}

@@ -58,28 +58,30 @@ func NewInput(recursive bool, include, exclude string, timeBefore, timeAfter str
 }
 
 type ChData struct {
-	Body      []byte
+	Data      []byte
 	PartIndex int64
 	Err       error
 }
 
 type BucketIo interface {
-	HeadObject(profile, bucketName, object string) (Object, error)
+	HeadObject(profile, bucketName, key string) (Object, error)
 	GetObject(profile, bucketName, object string) ([]byte, error)
-	MutiDownloadObject(objectSize int64, sourceKey, sourceEtag string, ch chan<- *ChData)
+	UploadObject(profile, bucketName, object string, data []byte) error
 
 	ListObjects(profile, bucketName, prefix string, input Input) ([]string, []Object, error)
 	ListObjectsWithChan(profile, bucketName, prefix string, input Input, objectsChan chan ChanObject) //使用chan的方式降低内存占用并降低大量数据的等待时间
 
 	RmObject(profile, bucketName, object string) error
 
-	UploadObject(profile, bucketName, object string, data []byte) error
-
-	CopyObjectV1(profile, sourceBucket string, sourceObj Object, targetBucket, targetKey string) error // 该接口实现自动判断是否需要分片拷贝
-
 	CreateMutiUpload(profile, bucketName, object string) (string, error)
 	UploadPart(profile, bucketName, object, copySource, copySourceRange, uploadId string, partNumber int64) (*s3.CompletedPart, error)
+	UploadPartWithData(profile, bucketName, object, uploadId string, partNumber int64, data []byte) (*s3.CompletedPart, error)
+	MutiDownloadObject(profileFrom, sourceBucket string, sourceObj Object, ch chan<- *ChData)
 	ComplateMutiPartUpload(profile, bucketName, object, uploadId string, completed_parts []*s3.CompletedPart) error
+
+	// 高级封装的接口
+	CopyObjectServerSide(profile, sourceBucket string, sourceObj Object, targetBucket, targetKey string) error
+	CopyObjectClientSide(profileFrom, profileTo, sourceBucket string, sourceObj Object, targetBucket, targetKey string) error
 }
 
 type Object struct {

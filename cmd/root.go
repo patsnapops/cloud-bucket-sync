@@ -60,6 +60,7 @@ func initApp() {
 	log.Default().WithLevel(logLevel).WithFilename(logPath).WithHumanTime(time.Local).Init()
 	// init config
 	cliConfig = config.LoadCliConfig(configPath)
+	// log.Debugf(tea.Prettify(cliConfig.Profiles))
 	managerConfig = config.LoadManagerConfig(configPath)
 	workerConfig = config.LoadWorkerConfig(configPath)
 	// log.Debugf(tea.Prettify(workerConfig))
