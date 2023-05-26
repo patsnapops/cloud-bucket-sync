@@ -10,14 +10,16 @@ import (
 )
 
 type WorkerService struct {
-	BucketIo model.BucketIo
-	RequestC model.RequestContract
+	BucketIo  model.BucketIo
+	RequestC  model.RequestContract
+	ThreadNum int64
 }
 
-func NewWorkerService(bucketIo model.BucketIo, requestC model.RequestContract) model.WorkerContract {
+func NewWorkerService(bucketIo model.BucketIo, requestC model.RequestContract, threadNum int64) model.WorkerContract {
 	return &WorkerService{
-		BucketIo: bucketIo,
-		RequestC: requestC,
+		BucketIo:  bucketIo,
+		RequestC:  requestC,
+		ThreadNum: threadNum,
 	}
 }
 
