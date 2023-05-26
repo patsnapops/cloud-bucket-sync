@@ -111,7 +111,7 @@ func (r *RequestService) RecordUpdateStatus(recordID string, status model.Status
 func (r *RequestService) RecordUpdate(record *model.Record) error {
 	// struct to map
 	req := req.Param{}
-	data, _ := json.Marshal(r)
+	data, _ := json.Marshal(record)
 	err := json.Unmarshal(data, &req)
 	if err != nil {
 		return err

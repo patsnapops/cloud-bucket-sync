@@ -1,16 +1,15 @@
 [
     {
-        "name": "这是个有问题的定时任务",
-        "corn": "0 0 0 * ?",
+        "name": "测试服务端的同步任务",
         "exclude": "",
         "include": "",
-        "is_overwrite": false,
+        "is_server_side": true,
         "source_profile": "cn9554",
-        "source_url": "s3://ops-9554/s3-proxy-test/",
+        "source_url": "s3://ops-9554/cbs/serverSideTask/",
         "submitter": "zhoushoujian",
         "sync_mode": "syncOnce",
         "target_profile": "cn9554",
-        "target_url": "s3://ops-9554/zhoushoujiantest/popapi/",
+        "target_url": "s3://ops-9554/cbs/test/serverSideTask/",
         "time_after": "",
         "time_before": "",
         "storage_class":""

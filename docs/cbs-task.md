@@ -46,6 +46,7 @@ manager:
    "created_at": "0001-01-01T00:00:00Z",
    "updated_at": "0001-01-01T00:00:00Z",
    "is_deleted": false,
+   "is_server_side": true,
    "worker": "aws-cn",
    "name": "测试定时执行任务",
    "source_url": "s3://ops-9554/s3-proxy-test/",
@@ -74,3 +75,28 @@ manager:
 taskID: e549bcef-e4b5-4348-b8d6-8db99ae2037d
 ```
 [task.json](./task.json)
+
+
+## 任务配置说明
+### 1. 任务配置文件
+```json
+{
+  "name": "测试定时执行任务",
+  "source_url": "s3://ops-9554/s3-proxy-test/",
+  "target_url": "s3://ops-9554/zhoushoujiantest/popapi/",
+  "source_profile": "cn9554",
+  "target_profile": "cn9554",
+  "sync_mode": "syncOnce", // syncOnce（一次同步）, keepSync（保持同步）
+  "submitter": "zhoushoujian",
+  "corn": "", // 定时任务表达式 “分 时 日 月 周”
+  "keys_url": "", // 指定需要同步的文件列表，文件内容为每行一个文件路径
+  "is_silence": false, // 是否静默执行,钉钉通知会检验此字段
+  "is_overwrite": false, // 是否强制覆盖源文件，如果为false，会跳过已经存在的文件，如果为true，默认还会校验文件的md5值，如果不一致，会覆盖
+  "time_before": "", // 指定同步文件的最后修改时间，格式为：2006-01-02 15:04:05
+  "time_after": "", // 指定同步文件的最后修改时间，格式为：2006-01-02 15:04:05
+  "include": "", // 指定需要同步的文件，支持通配符，多个文件以逗号分隔
+  "exclude": "", // 指定不需要同步的文件，支持通配符，多个文件以逗号分隔
+  "storage_class": "STANDARD", // 指定目标存储类型，支持：STANDARD（标准存储）、STANDARD_IA（低频访问）、GLACIER（归档存储）
+  "meta": "" // 指定目标文件的元数据，格式为：key1=value1,key2=value2（暂未实际使用到）
+}
+```

@@ -41,7 +41,7 @@ func (c *managerClient) QueryRecord(input model.RecordInput) ([]*model.Record, e
 
 func (c *managerClient) UpdateRecord(record *model.Record) error {
 	recordId := record.Id
-	log.Debugf("update record: %s", tea.Prettify(record))
+	// log.Debugf("update record: %s", tea.Prettify(record))
 	return c.db.Model(&model.Record{}).Where("id = ?", recordId).Updates(record).Error
 }
 

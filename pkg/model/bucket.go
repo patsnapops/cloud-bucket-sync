@@ -69,7 +69,7 @@ type BucketIo interface {
 	UploadObject(profile, bucketName, object string, data []byte) error
 
 	ListObjects(profile, bucketName, prefix string, input Input) ([]string, []Object, error)
-	ListObjectsWithChan(profile, bucketName, prefix string, input Input, objectsChan chan ChanObject) //使用chan的方式降低内存占用并降低大量数据的等待时间
+	ListObjectsWithChan(profile, bucketName, prefix string, input Input, objectsChan chan *ChanObject) //使用chan的方式降低内存占用并降低大量数据的等待时间
 
 	RmObject(profile, bucketName, object string) error
 
@@ -80,30 +80,29 @@ type BucketIo interface {
 	ComplateMutiPartUpload(profile, bucketName, object, uploadId string, completed_parts []*s3.CompletedPart) error
 
 	// 高级封装的接口
+	// target和source profile要一致，否则要保证目标段和源段的profile有权限
+	// 做了是否覆盖的判断
 	CopyObjectServerSide(profile, sourceBucket string, sourceObj Object, targetBucket, targetKey string) error
 	CopyObjectClientSide(profileFrom, profileTo, sourceBucket string, sourceObj Object, targetBucket, targetKey string) error
 }
 
-type Object struct {
-	Key          string
-	Size         int64
-	ETag         string
-	StorageClass string
-	LastModified time.Time
-}
-
 type ChanObject struct {
-	Error *error
-	Obj   *Object
-	Dir   *string
+	Obj *Object
+	Dir *string
 }
 
 // 过滤对象，符合条件返回true 默认都符合
 func ListObjectsWithFilter(key Object, input Input) bool {
+
 	contain := false
 	if len(input.Include) != 0 {
 		for _, include := range input.Include {
-			log.Debugf("key: %v, include: %v", key.Key, include)
+			// log.Debugf("key: %v, include: %v", key.Key, include)
+			if include == "" {
+				// log.Debugf("%v", include == "")
+				contain = true
+				continue
+			}
 			if strings.Contains(key.Key, include) {
 				contain = true
 			}
@@ -115,10 +114,18 @@ func ListObjectsWithFilter(key Object, input Input) bool {
 	excludeB := false
 	if len(input.Exclude) != 0 {
 		for _, exclude := range input.Exclude {
+			log.Debugf("key: %v, exclude: %v", key.Key, exclude)
+			if exclude == "" {
+				log.Debugf("%v", exclude == "")
+				excludeB = false
+				continue
+			}
 			if strings.Contains(key.Key, exclude) {
 				excludeB = true
 			}
 		}
+	} else {
+		excludeB = false
 	}
 
 	timeAfterB := false

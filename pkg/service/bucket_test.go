@@ -4,6 +4,7 @@ import (
 	"cbs/config"
 	"cbs/pkg/io"
 	"cbs/pkg/model"
+	"cbs/pkg/service"
 	"fmt"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 
 var (
 	bucketIo model.BucketIo
+	workerC  model.WorkerContract
 )
 
 var (
@@ -26,6 +28,8 @@ func init() {
 	log.Default().WithLevel(log.DebugLevel).Init()
 	log.Debugf("cliConfig: %v", cliConfig.Profiles)
 	bucketIo = io.NewBucketClient(cliConfig.Profiles)
+	requestC := service.NewRequestService(cliConfig.Manager)
+	workerC = service.NewWorkerService(bucketIo, requestC)
 }
 
 // test CopyObjectClientSide

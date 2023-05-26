@@ -52,15 +52,12 @@ func UpdateTaskRecord(c *gin.Context) {
 		c.JSON(500, err.Error())
 		return
 	}
-	message := ""
-	if req.Status != "" {
-		message += "(status is not support to update by this api, please use action api to update status.)"
-	}
 	req.Status = "" // 不支持status的修改，修改status需要调用接口 action接口，过滤掉status
+	// log.Debugf(tea.Prettify(req))
 	err := managerIo.UpdateRecord(&req)
 	if err != nil {
 		c.JSON(500, err.Error())
 		return
 	}
-	c.JSON(200, message+"update success")
+	c.JSON(200, "success")
 }

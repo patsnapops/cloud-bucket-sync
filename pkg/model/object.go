@@ -33,6 +33,14 @@ const (
 	MaxSinglePutObjectSize = 1024 * 1024 * 1024 * 5
 )
 
+type Object struct {
+	Key          string
+	Size         int64
+	ETag         string
+	StorageClass string
+	LastModified time.Time
+}
+
 type ChanObjects struct {
 	Key          *string
 	Size         *int64

@@ -7,6 +7,6 @@ type FailedKey struct {
 }
 
 type WorkerContract interface {
-	SyncOnce(task Task, record Record, isServerSide bool)
-	KeepSync(task Task, record Record, isServerSide bool)
+	SyncOnce(task Task, record *Record)
+	KeepSync(task Task, record *Record)
 }

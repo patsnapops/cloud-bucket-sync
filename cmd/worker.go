@@ -42,7 +42,7 @@ var runWorker = &cobra.Command{
 	Long:    "\nyou know for start a worker!",
 	Run: func(cmd *cobra.Command, args []string) {
 		initApp()
-		workerC = service.NewWorkerService(bucketIo)
+		workerC = service.NewWorkerService(bucketIo, requestC)
 		switch len(args) {
 		case 0:
 			runWorkerCmd(cmd, args)
@@ -112,21 +112,20 @@ func run(worker model.Worker) {
 		}
 		// 更新record
 		err = requestC.RecordUpdateStatus(record.Id, model.TaskRunning)
+		record.Status = model.TaskRunning
 		if err != nil {
 			log.Errorf("update record status error: %s", err)
 			continue
 		}
 		log.Infof("start record %s", record.Id)
-		isServerSide := isServerSide(task.SourceProfile, task.TargetProfile)
-		log.Debugf("is cross region %v", isServerSide)
 		// 执行任务
 		switch record.RunningMode {
 		case "syncOnce":
 			log.Debugf("syncOnce")
-			workerC.SyncOnce(*task, record, isServerSide)
+			go workerC.SyncOnce(*task, &record)
 		case "keepSync":
 			log.Debugf("keepSync")
-			workerC.KeepSync(*task, record, isServerSide)
+			go workerC.KeepSync(*task, &record)
 		default:
 			log.Errorf("unknown running mode: %s", record.RunningMode)
 		}
@@ -155,12 +154,6 @@ func checkIsRunBySameWorker(record *model.Record, worker model.Worker) bool {
 		log.Errorf("跳过一个worker同时执行任务的情况 %s", record.Id)
 		return true
 	}
-	return false
-}
-
-// 要知道源和目的是否需要走公网消耗流量，如果走serverSide不仅速度快，还能节省流量费用。
-// TODO: 通过profile来判断是否是serverSide
-func isServerSide(profileFrom, profileTo string) bool {
 	return false
 }
 

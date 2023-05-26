@@ -8,6 +8,7 @@ type Task struct {
 	UpdatedAt     time.Time `json:"updated_at" gorm:"column:updated_at"`
 	IsDeleted     bool      `json:"is_deleted" gorm:"not null;default:false"`
 	WorkerTag     string    `json:"worker" gorm:"not null;default:''"`                                                                                            // worker节点,task创建的时候创建
+	IsServerSide  bool      `json:"is_server_side" gorm:"not null;default:true"`                                                                                  // 是否跨区域,默认启用，决定是否流量经过本地，涉及到流量费用
 	Name          string    `json:"name" gorm:"not null" binding:"required"`                                                                                      // 任务名称
 	SourceUrl     string    `json:"source_url" gorm:"not null" binding:"required"`                                                                                // S3URL s3://sourceBucket/key 支持文件和目录结尾
 	TargetUrl     string    `json:"target_url" gorm:"not null" binding:"required"`                                                                                // S3URL s3://destBucket/dir/ 不支持文件结尾 没有/的目录看作目录处理
@@ -18,13 +19,14 @@ type Task struct {
 	Corn          string    `json:"corn"  gorm:"not null;default:''" example:"0 */8 * * 1,2,3,4,5" `                                                              // 格式为 分、时、日、月、周                                                      // cron表达式 用于定时任务 ’分 时 日 月 周‘
 	KeysUrl       string    `json:"keys_url" gorm:"not null;default:''" example:"s3://bucket/key"`                                                                // S3URL s3://bucket/key 支持提供文件列表去同步
 	IsSilence     *bool     `json:"is_silence" gorm:"not null;default:false" example:"false"`                                                                     // 是否静默 默认false 静默不发送通知
-	IsOverwrite   *bool     `json:"is_overwrite,omitempty" gorm:"not null;default:false"`                                                                         // 是否覆盖 默认覆盖 true
 	TimeBefore    string    `json:"time_before"  example:"1992-03-01 21:26:30"`                                                                                   // 在某个时间之前 UTC时间格式：“1992-03-01 21:26:30”
 	TimeAfter     string    `json:"time_after"  example:"1992-03-01 21:26:30"`                                                                                    // 在某个时间之后 UTC时间格式：“1992-03-01 21:26:30”
 	Include       string    `json:"include" gorm:"type:text"`                                                                                                     // 包含
 	Exclude       string    `json:"exclude" gorm:"type:text"`                                                                                                     // 排除
 	StorageClass  string    `json:"storage_class" gorm:"not null;default:STANDARD"`                                                                               // 存储类型 STANDARD,STANDARD_IA,ONEZONE_IA,INTELLIGENT_TIERING,REDUCED_REDUNDANCY,STANDARD_IA,ONEZONE_IA,INTELLIGENT_TIERING,REDUCED_REDUNDANCY
 	Meta          string    `json:"meta" gorm:"type:text" example:"Expires:2022-10-12T00:00:00.000Z#Cache-Control:no-cache#Content-Encoding:gzip#x-cos-meta-x:x"` // 任务元信息
+	// IsOverwrite   *bool     `json:"is_overwrite,omitempty" gorm:"not null;default:false"`                                                                         // 是否覆盖 默认覆盖 true(弃用，接口实现了md5sum的比对。)
+
 }
 
 func StringToTime(str string) *time.Time {

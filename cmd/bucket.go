@@ -118,15 +118,12 @@ var lsCmd = &cobra.Command{
 			bucketName, prefix := model.ParseBucketAndPrefix(args[0])
 			timeStart := time.Now()
 			if queue != 0 {
-				objectsChan := make(chan model.ChanObject, queue)
+				objectsChan := make(chan *model.ChanObject, queue)
 				// 放弃table的展示，因为他不能体现chan的特性，会等到所有结果出来一起打印。
 				var totalSize int64
 				var totalObjects int64
 				go bucketIo.ListObjectsWithChan(profileFrom, bucketName, prefix, input, objectsChan)
 				for objectChan := range objectsChan {
-					if objectChan.Error != nil {
-						panic(objectChan.Error)
-					}
 					if objectChan.Obj != nil {
 						totalSize += objectChan.Obj.Size
 						if totalObjects > limit && limit != 0 {
@@ -194,7 +191,7 @@ var rmCmd = &cobra.Command{
 			if queue == 0 {
 				queue = 1000
 			}
-			objectsChan := make(chan model.ChanObject, queue)
+			objectsChan := make(chan *model.ChanObject, queue)
 			// 放弃table的展示，因为他不能体现chan的特性，会等到所有结果出来一起打印。
 			if file != "" {
 				if strings.HasSuffix(file, ".csv") {
@@ -218,9 +215,6 @@ var rmCmd = &cobra.Command{
 			var totalSize int64
 			var totalObjects int64
 			for objectChan := range objectsChan {
-				if objectChan.Error != nil {
-					panic(objectChan.Error)
-				}
 				if objectChan.Obj != nil {
 					totalSize += objectChan.Obj.Size
 					if totalObjects >= limit && limit != 0 {
@@ -250,14 +244,10 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 	srcBucketName, srcPrefix := model.ParseBucketAndPrefix(sourceUrl)
 	dstBucketName, dstPrefix := model.ParseBucketAndPrefix(targetUrl)
 	// 获取源所有的key
-	objectsChan := make(chan model.ChanObject, 1000)
+	objectsChan := make(chan *model.ChanObject, 1000)
 	go bucketIo.ListObjectsWithChan(profileFrom, srcBucketName, srcPrefix, input.Input, objectsChan)
 	for object := range objectsChan {
 		log.Debugf("object:%s", tea.Prettify(object))
-		if object.Error != nil {
-			log.Errorf("list object error:%s", *object.Error)
-			continue
-		}
 		if object.Obj == nil {
 			continue
 		}
@@ -269,21 +259,6 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 			log.Infof("%s => %s", object.Obj.Key, targetKey)
 			log.Infof("dry run object:%s", tea.Prettify(object))
 			continue
-		}
-		if !input.Force {
-			// 没有覆盖要去检查目标文件的etag
-			dstObject, err := bucketIo.HeadObject(profileTo, dstBucketName, targetKey)
-			if err != nil {
-				// except 404
-				if !strings.Contains(err.Error(), "404") {
-					log.Errorf("head object error:%s", err.Error())
-					continue
-				}
-			}
-			if object.Obj.ETag == dstObject.ETag {
-				log.Infof("same etag for %s/%s, skip.", dstBucketName, targetKey)
-				continue
-			}
 		}
 		if profileFrom != profileTo {
 			err := bucketIo.CopyObjectClientSide(profileFrom, profileTo, srcBucketName, *object.Obj, dstBucketName, targetKey)
@@ -304,13 +279,9 @@ func syncBucketToLocal(sourceUrl, targetUrl string, input model.SyncInput) {
 	// sync bucket to local
 	bucketName, prefix := model.ParseBucketAndPrefix(sourceUrl)
 	// 获取源所有的key
-	objectsChan := make(chan model.ChanObject, 1000)
+	objectsChan := make(chan *model.ChanObject, 1000)
 	go bucketIo.ListObjectsWithChan(profileFrom, bucketName, prefix, input.Input, objectsChan)
 	for object := range objectsChan {
-		if object.Error != nil {
-			log.Errorf("list object error:%s", object.Error)
-			continue
-		}
 		if object.Obj == nil {
 			continue
 		}
@@ -391,7 +362,7 @@ func deleteObject(profile, bucketName, key string, dryRun bool, force bool, dele
 
 // 在文件中读取bucket 放到objectsChan中
 // 支持处理.txt结尾的文件，每个key一行
-func readObjectsFromTxt(file string, input model.Input, objectsChan chan model.ChanObject, closeChan bool) {
+func readObjectsFromTxt(file string, input model.Input, objectsChan chan *model.ChanObject, closeChan bool) {
 	f, err := os.Open(file)
 	if err != nil {
 		panic(err)
@@ -411,7 +382,7 @@ func readObjectsFromTxt(file string, input model.Input, objectsChan chan model.C
 		}
 		if model.ListObjectsWithFilter(obj, input) {
 			log.Debugf("read key: %s", key)
-			objectsChan <- model.ChanObject{
+			objectsChan <- &model.ChanObject{
 				Obj: &obj,
 			}
 		}
@@ -424,7 +395,7 @@ func readObjectsFromTxt(file string, input model.Input, objectsChan chan model.C
 
 // 在文件中读取bucket 放到objectsChan中
 // 支持处理.txt结尾的文件，每个key一行
-func readObjectsFromCsv(file string, input model.Input, objectsChan chan model.ChanObject, closeChan bool) {
+func readObjectsFromCsv(file string, input model.Input, objectsChan chan *model.ChanObject, closeChan bool) {
 	f, err := os.Open(file)
 	if err != nil {
 		panic(err)
@@ -451,7 +422,7 @@ func readObjectsFromCsv(file string, input model.Input, objectsChan chan model.C
 		}
 		log.Debugf("read key: %s", key)
 		if model.ListObjectsWithFilter(obj, input) {
-			objectsChan <- model.ChanObject{
+			objectsChan <- &model.ChanObject{
 				Obj: &obj,
 			}
 		}
@@ -462,7 +433,7 @@ func readObjectsFromCsv(file string, input model.Input, objectsChan chan model.C
 }
 
 // 支持整个dir的文件遍历objects 放到objectsChan中
-func readObjectsFromDir(dir string, input model.Input, objectsChan chan model.ChanObject) {
+func readObjectsFromDir(dir string, input model.Input, objectsChan chan *model.ChanObject) {
 	// 读取目录下的所有文件，只处理.txt .csv结尾的文件
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {

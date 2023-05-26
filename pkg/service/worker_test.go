@@ -1,0 +1,28 @@
+package service_test
+
+import (
+	"cbs/pkg/model"
+	"testing"
+)
+
+var (
+	serverSideTask = model.Task{
+		Name:          "serverSideTask",
+		IsServerSide:  true,
+		SourceProfile: "cn9554",
+		TargetProfile: "cn9554",
+		SourceUrl:     "s3://ops-9554/zhoushoujiantest/",
+		TargetUrl:     "s3://ops-9554/cbs/serverSideTask/",
+		Include:       "",
+		Exclude:       "",
+		TimeBefore:    "",
+		TimeAfter:     "",
+		SyncMode:      "syncOnce",
+		WorkerTag:     "aws-cn",
+	}
+)
+
+// Test sync once
+func TestSyncOnce(t *testing.T) {
+	workerC.SyncOnce(serverSideTask, &model.Record{})
+}

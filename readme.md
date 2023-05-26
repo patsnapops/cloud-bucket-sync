@@ -13,6 +13,9 @@ cbs 是一个云原生的用途不同云对象存储的同步转移的工具。�
 
 - 支持对象查询`cbs bucket ls {s3_url} -l {limit}`
 - 支持对象删除`cbs bucket rm {s3_url}`
+- 支持对象下载`cbs bucket sync {s3_url} {local_path}`
+- 支持对象上传`cbs bucket sync {local_path} {s3_url}`
+- 支持对象复制、同步（支持跨不同账号，不同云厂商，需要支持s3协议）`cbs bucket sync {s3_url} {s3_url}`
 
 更多信息： [cbs bucket command](./docs/cbs-bucket.md)
 ### 3.manager功能

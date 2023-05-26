@@ -105,28 +105,28 @@ func (c *bucketClient) ListObjects(profile, bucketName, prefix string, input mod
 
 }
 
-func (c *bucketClient) ListObjectsWithChan(profile, bucketName, prefix string, input model.Input, objectsChan chan model.ChanObject) {
+func (c *bucketClient) ListObjectsWithChan(profile, bucketName, prefix string, input model.Input, objectsChan chan *model.ChanObject) {
 	log.Debugf("list objects %s/%s", bucketName, prefix)
+	log.Debugf(tea.Prettify(input))
 	if sess, ok := c.sessions[profile]; ok {
 		svc := s3.New(sess)
 		s3Input := &s3.ListObjectsV2Input{
 			Bucket: aws.String(bucketName),
 			Prefix: aws.String(prefix),
 		}
-		log.Debugf(tea.Prettify(input))
 		if input.Recursive {
 			s3Input.Delimiter = aws.String("")
 		} else {
 			s3Input.Delimiter = aws.String("/")
 		}
 		var index int64
+		var match int64
 		for {
 			resp, err := svc.ListObjectsV2(s3Input)
 			if err != nil {
-				objectsChan <- model.ChanObject{
-					Error: &err,
-				}
+				log.Errorf("list objects error %s", err)
 				close(objectsChan)
+				return
 			}
 			for _, content := range resp.Contents {
 				index++
@@ -138,20 +138,23 @@ func (c *bucketClient) ListObjectsWithChan(profile, bucketName, prefix string, i
 					LastModified: *content.LastModified,
 				}
 				if model.ListObjectsWithFilter(obj, input) {
-					objectsChan <- model.ChanObject{
+					match++
+					log.Debugf("list objects %s", obj.Key)
+					objectsChan <- &model.ChanObject{
 						Obj: &obj,
 					}
 				}
 
 			}
-			log.Debugf("index %d", index)
 
 			for _, commonPrefix := range resp.CommonPrefixes {
 				index++
-				objectsChan <- model.ChanObject{
+				objectsChan <- &model.ChanObject{
 					Dir: commonPrefix.Prefix,
 				}
 			}
+			log.Debugf("total obj: %d/%d", match, index)
+
 			if int(index) > int(input.Limit) && input.Limit != 0 {
 				close(objectsChan)
 				return
@@ -393,6 +396,9 @@ func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sour
 // profile 必须同时具有sourceBucket和targetBucket的权限，或者指定一方，另一方权限公开读;
 // 全部在云上操作，不需要下载到本地。
 func (c *bucketClient) CopyObjectServerSide(profile, sourceBucket string, sourceObj model.Object, targetBucket, targetKey string) error {
+	if c.isSameMd5(sourceObj, profile, targetBucket, targetKey) {
+		return nil
+	}
 	var partIndex int64 = 0
 	// 低于5G的数据直接使用copy
 	if sourceObj.Size <= model.MaxPartSize {
@@ -406,7 +412,6 @@ func (c *bucketClient) CopyObjectServerSide(profile, sourceBucket string, source
 		if totalParts > model.MaxPartsCount {
 			return fmt.Errorf("Your proposed compose object requires more than %d parts", model.MaxPartsCount)
 		}
-
 		upload_id, err := c.CreateMutiUpload(profile, targetBucket, targetKey)
 		if err != nil {
 			return err
@@ -441,14 +446,17 @@ func (c *bucketClient) CopyObjectServerSide(profile, sourceBucket string, source
 }
 
 // 依据文件大小决定是用PutObject，还是分片上传；这里设置文件大小为5G，超过5G的文件使用分片上传；
-func (c *bucketClient) CopyObjectClientSide(profileFrom, profileTo, sourceBucket string, sourceObj model.Object, targetBucket, targetKey string) error {
+func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, sourceBucket string, sourceObj model.Object, targetBucket, targetKey string) error {
+	if c.isSameMd5(sourceObj, targetProfile, targetBucket, targetKey) {
+		return nil
+	}
 	if sourceObj.Size <= model.MaxPartSize {
 		log.Debugf("file is less than 5G,use copy")
-		data, err := c.GetObject(profileFrom, sourceBucket, sourceObj.Key)
+		data, err := c.GetObject(sourceProfile, sourceBucket, sourceObj.Key)
 		if err != nil {
 			return err
 		}
-		err = c.UploadObject(profileTo, targetBucket, targetKey, data)
+		err = c.UploadObject(targetProfile, targetBucket, targetKey, data)
 		if err != nil {
 			return err
 		}
@@ -464,16 +472,16 @@ func (c *bucketClient) CopyObjectClientSide(profileFrom, profileTo, sourceBucket
 			return fmt.Errorf("Your proposed compose object requires more than %d parts", model.MaxPartsCount)
 		}
 
-		upload_id, err := c.CreateMutiUpload(profileTo, targetBucket, targetKey)
+		upload_id, err := c.CreateMutiUpload(targetProfile, targetBucket, targetKey)
 		if err != nil {
 			return err
 		}
 		ch := make(chan *model.ChData, 100)
-		go c.MutiDownloadObject(profileFrom, sourceBucket, sourceObj, ch)
+		go c.MutiDownloadObject(sourceProfile, sourceBucket, sourceObj, ch)
 		var completed_parts []*s3.CompletedPart
 		for mutiData := range ch {
 			partIndex++
-			part, err := c.UploadPartWithData(profileTo, targetBucket, targetKey, upload_id, partIndex, mutiData.Data)
+			part, err := c.UploadPartWithData(targetProfile, targetBucket, targetKey, upload_id, partIndex, mutiData.Data)
 			if err != nil {
 				log.Fatal(err.Error())
 				break
@@ -481,7 +489,7 @@ func (c *bucketClient) CopyObjectClientSide(profileFrom, profileTo, sourceBucket
 			completed_parts = append(completed_parts, part)
 			log.Infof(`UploadPart s3://%s/%s %d/%d`, targetBucket, targetKey, partIndex, totalParts)
 		}
-		err = c.ComplateMutiPartUpload(profileTo, targetBucket, targetKey, upload_id, completed_parts)
+		err = c.ComplateMutiPartUpload(targetProfile, targetBucket, targetKey, upload_id, completed_parts)
 		if err != nil {
 			return err
 		} else {
@@ -489,4 +497,23 @@ func (c *bucketClient) CopyObjectClientSide(profileFrom, profileTo, sourceBucket
 			return nil
 		}
 	}
+}
+
+// 判断是否是相同的文件，如果是相同的文件则不进行复制
+func (c *bucketClient) isSameMd5(object model.Object, targetProfile, targetBucket, targetKey string) bool {
+	// 没有覆盖要去检查目标文件的etag
+	log.Debugf("check etag for %s/%s", targetBucket, targetKey)
+	dstObject, err := c.HeadObject(targetProfile, targetBucket, targetKey)
+	if err != nil {
+		// except 404
+		if !strings.Contains(err.Error(), "404") {
+			log.Errorf("head object error:%s", err.Error())
+			return false
+		}
+	}
+	if object.ETag == dstObject.ETag {
+		log.Infof("same etag for %s/%s, skip.", targetBucket, targetKey)
+		return true
+	}
+	return false
 }
