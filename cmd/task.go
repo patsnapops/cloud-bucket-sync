@@ -17,6 +17,8 @@ var (
 	taskFile string
 	operator string
 	syncMode string
+
+	outputFormat string
 )
 
 func init() {
@@ -26,6 +28,9 @@ func init() {
 	taskCmd.AddCommand(showCmd)
 	taskCmd.AddCommand(execCmd)
 	taskCmd.PersistentFlags().StringVarP(&taskFile, "file", "f", "", "task file path, default is ./task.json")
+
+	showCmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "output format, support table/json")
+
 	execCmd.Flags().StringVarP(&operator, "operator", "o", "cli", "task operator")
 	execCmd.Flags().StringVarP(&syncMode, "sync-mode", "s", "", "task sync mode, support keepSync（real-time sync） syncOnce（one-time sync）")
 }
@@ -62,7 +67,17 @@ var showCmd = &cobra.Command{
 		initApp()
 		switch len(args) {
 		case 0:
-			showTask(cmd, args)
+			if outputFormat == "json" {
+				tasks, err := requestC.TaskQuery(model.TaskInput{})
+				if err != nil {
+					panic(err)
+				}
+				for _, task := range tasks {
+					fmt.Println(tea.Prettify(task))
+				}
+			} else {
+				showTask(cmd, args)
+			}
 		case 1:
 			// show taskID
 			taskID := args[0]

@@ -75,6 +75,17 @@ delete patent-familydata/10/57/31/07/10573107.XML success
 
 Total Objects: 10000, Total Size: 21.10 MB, Cost Time: 45.873002895s
 ```
+```bash
+#  150线程删除 1.9亿个对象，耗时 152小时
+[root@zhoushoujianworkspace cloud-bucket-sync]# cbs b rm --dir tests/ --thread-num 150  s3://patent-familydata/ -f -p us0066 --error-file tests/error.txt -c ./config/
+···
+delete patent-familydata/DOCDB/PATENT/CH/69/43/34/A5/CH694334A5_20130328.zip success
+delete patent-familydata/DOCDB/PATENT/CH/69/43/38/A5/CH694338A5_20210617.zip success
+delete patent-familydata/DOCDB/PATENT/CH/69/43/28/A5/CH694328A5_20210624.zip success
+delete patent-familydata/DOCDB/PATENT/CH/69/43/18/A5/CH694318A5_20130328.zip success
+
+Total Objects: 192825659, Total Size: 0 B, Cost Time: 152h43m32.982637125s
+```
 
 thread-num | 100 | 10000 |640万| 1秒对象|失败个数
 ---|---|---|---|---|---

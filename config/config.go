@@ -52,10 +52,6 @@ func GetProfile(profiles []Profile, name string) Profile {
 	return Profile{}
 }
 
-type WorkerConfig struct {
-	Worker string `mapstructure:"worker"`
-}
-
 type Profile struct {
 	Name     string `mapstructure:"name"`
 	AK       string `mapstructure:"ak"`
@@ -103,17 +99,4 @@ func LoadCliConfig(configDir string) *CliConfig {
 	}
 	viper.Unmarshal(cliConfig)
 	return cliConfig
-}
-
-func LoadWorkerConfig(configDir string) *WorkerConfig {
-	workerConfig := &WorkerConfig{}
-	if !strings.HasSuffix(configDir, "/") {
-		configDir = configDir + "/"
-	}
-	err := loadConfig(configDir + "worker.yaml")
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-	viper.Unmarshal(workerConfig)
-	return workerConfig
 }

@@ -18,7 +18,6 @@ var (
 
 	cliConfig     *config.CliConfig
 	managerConfig *config.ManagerConfig
-	workerConfig  *config.WorkerConfig
 
 	requestC model.RequestContract
 	bucketIo model.BucketIo
@@ -42,7 +41,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = cmd.Help()
 		},
-		Version: "v0.0.1-beta",
+		Version: "v0.0.2-beta",
 	}
 )
 
@@ -62,7 +61,6 @@ func initApp() {
 	cliConfig = config.LoadCliConfig(configPath)
 	// log.Debugf(tea.Prettify(cliConfig.Profiles))
 	managerConfig = config.LoadManagerConfig(configPath)
-	workerConfig = config.LoadWorkerConfig(configPath)
 	// log.Debugf(tea.Prettify(workerConfig))
 	// init Service
 	bucketIo = io.NewBucketClient(cliConfig.Profiles)
