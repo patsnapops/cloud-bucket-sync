@@ -56,9 +56,8 @@ type Profile struct {
 	Name     string `mapstructure:"name"`
 	AK       string `mapstructure:"ak"`
 	SK       string `mapstructure:"sk"`
-	Region   string `mapstructure:"region"`   // 云服务的region，决定了同步过程的节点调度
-	Endpoint string `mapstructure:"endpoint"` // 云服务的endpoint
-	Cloud    string `mapstructure:"cloud"`    // 云平台，决定了同步过程的节点调度
+	Region   string `mapstructure:"region"`   // 桶所在的区域
+	Endpoint string `mapstructure:"endpoint"` // 云服务的endpoint，支持配置自己的endpoint
 }
 
 func loadConfig(configFile string) error {

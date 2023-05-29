@@ -88,7 +88,12 @@ func startSchedule(managerC model.ManagerContract) {
 	}
 	c := cron.New()
 	c.AddFunc("*/10 * * * * *", func() {
+		// 检查worker状态
 		managerC.CheckWorker()
+	})
+	c.AddFunc("* * * * * *", func() {
+		// 检查task的cron表达式，符合条件的task会执行生成pending状态record去跑
+		managerC.CheckTaskCorn()
 	})
 	c.Start()
 	select {}

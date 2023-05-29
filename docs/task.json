@@ -3,6 +3,7 @@
         "name": "测试服务端的同步任务",
         "exclude": "",
         "include": "",
+        "worker_tag":"aws-cn",
         "is_server_side": true,
         "source_profile": "cn9554",
         "source_url": "s3://ops-9554/cbs/serverSideTask/",

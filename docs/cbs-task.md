@@ -88,9 +88,11 @@ taskID: e549bcef-e4b5-4348-b8d6-8db99ae2037d
   "target_profile": "cn9554",
   "sync_mode": "syncOnce", // syncOnce（一次同步）, keepSync（保持同步）
   "submitter": "zhoushoujian",
+  "worker_tag": "aws-cn",
   "corn": "", // 定时任务表达式 “分 时 日 月 周”
   "keys_url": "", // 指定需要同步的文件列表，文件内容为每行一个文件路径
   "is_silence": false, // 是否静默执行,钉钉通知会检验此字段
+  "is_server_side": true, // 标记任务是否可以使用serverCopy 即后台copy，流量不需要走本地，比如 同一个地域下的桶。如果是跨地域的桶，需要设置为false，要走公网下载后再上传。
   "is_overwrite": false, // 是否强制覆盖源文件，如果为false，会跳过已经存在的文件，如果为true，默认还会校验文件的md5值，如果不一致，会覆盖
   "time_before": "", // 指定同步文件的最后修改时间，格式为：2006-01-02 15:04:05
   "time_after": "", // 指定同步文件的最后修改时间，格式为：2006-01-02 15:04:05

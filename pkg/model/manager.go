@@ -4,6 +4,7 @@ import "cbs/config"
 
 type ManagerContract interface {
 	CheckWorker() // 检查worker是否正常,并修复running的任务重新执行如果worker挂掉
+	CheckTaskCorn() // 检查task的cron表达式，符合条件的task会执行生成pending状态record去跑
 }
 
 type ManagerIo interface {

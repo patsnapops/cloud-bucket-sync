@@ -3,8 +3,6 @@ package io
 import (
 	"cbs/config"
 	"cbs/pkg/model"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/alibabacloud-go/tea/tea"
@@ -113,45 +111,8 @@ func (c *managerClient) GetTaskById(taskID string) (*model.Task, error) {
 
 func (c *managerClient) CreateTask(task *model.Task, managerConfig config.ManagerConfig) (string, error) {
 	task.Id = uuid.New().String()
-	task.WorkerTag = fmtWorkerTag(task, managerConfig)
+	// task.WorkerTag = fmtWorkerTag(task, managerConfig)
 	return task.Id, c.db.Create(task).Error
-}
-
-// fmt task worker tags，依据
-func fmtWorkerTag(task *model.Task, managerConfig config.ManagerConfig) string {
-	var sourceProfile config.Profile
-	var targetProfile config.Profile
-	for _, profile := range managerConfig.Profiles {
-		if profile.Name == task.TargetProfile {
-			targetProfile = profile
-			break
-		}
-	}
-	for _, profile := range managerConfig.Profiles {
-		if profile.Name == task.SourceProfile {
-			sourceProfile = profile
-			break
-		}
-	}
-	if sourceProfile.Name == "" || targetProfile.Name == "" {
-		log.Errorf("source profile or target profile not found, source: %s, target: %s", task.SourceProfile, task.TargetProfile)
-		return ""
-	}
-	sourceRegionPrefix := strings.Split(sourceProfile.Region, "-")[0]
-	targetRegionPrefix := strings.Split(targetProfile.Region, "-")[0]
-	// same cloud and same region
-	if sourceProfile.Cloud == targetProfile.Cloud && sourceRegionPrefix == targetRegionPrefix {
-		return fmt.Sprintf("%s-%s", sourceProfile.Cloud, sourceRegionPrefix)
-	}
-	// same cloud and different region
-	if sourceProfile.Cloud == targetProfile.Cloud && sourceRegionPrefix != targetRegionPrefix {
-		return fmt.Sprintf("%s-%s:%s", sourceProfile.Cloud, sourceRegionPrefix, targetRegionPrefix)
-	}
-	// different cloud and same region
-	if sourceProfile.Cloud != targetProfile.Cloud && sourceRegionPrefix == targetRegionPrefix {
-		return fmt.Sprintf("%s:%s-%s", sourceProfile.Cloud, targetProfile.Cloud, sourceRegionPrefix)
-	}
-	return fmt.Sprintf("%s:%s-%s:%s", sourceProfile.Cloud, targetProfile.Cloud, sourceRegionPrefix, targetRegionPrefix)
 }
 
 func (c *managerClient) UpdateTask(task *model.Task) error {

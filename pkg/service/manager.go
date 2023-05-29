@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/patsnapops/noop/log"
+	"github.com/robfig/cron"
 )
 
 type ManagerService struct {
@@ -70,4 +71,74 @@ func (s *ManagerService) restartRecord(checkMap map[string]string, records []*mo
 			checkMap[record.TaskId] = workerID
 		}
 	}
+}
+
+func (s *ManagerService) CheckTaskCorn() {
+	// 扫描task任务设置corn的
+	tasks, err := s.Client.QueryTask(model.TaskInput{})
+	if err != nil {
+		log.Errorf("get task list error: %v", err)
+		return
+	}
+	for _, task := range tasks {
+		if task.SyncMode != string(model.ModeSyncOnce) {
+			continue
+		}
+		if task.Corn == "" {
+			continue
+		}
+		// 判断是否满足corn条件
+		if !s.cornMatch(*task) {
+			continue
+		}
+		// 判断是否需要执行
+		if !s.needExecute(*task) {
+			continue
+		}
+		// 执行
+		// log.Infof("start execute task %s", task.ID)
+		// 定时任务只会执行一次同步
+		_, err := s.Client.ExecuteTask(task.Id, task.Submitter, string(model.ModeSyncOnce))
+		if err != nil {
+			log.Errorf("execute task %s error: %v", task.Id, err)
+		}
+	}
+}
+
+// needExecute
+func (s *ManagerService) needExecute(task model.Task) bool {
+	// 判断是否需要执行,只有当task没有pending的record时才执行
+	records, err := s.Client.QueryRecord(model.RecordInput{})
+	if err != nil {
+		log.Errorf("get task record list error: %v", err)
+		return false
+	}
+	for _, record := range records {
+		if record.TaskId == task.Id {
+			if record.Status == model.TaskPending {
+				log.Errorf("task %s is pending,only one task can be run.", task.Id)
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// cornMatch 判断到分钟
+func (s *ManagerService) cornMatch(task model.Task) bool {
+	// 判断是否满足corn条件
+	sched, err := cron.ParseStandard(task.Corn)
+	if err != nil {
+		log.Errorf("parse corn for task %s:%s error: %v", task.Id, task.Corn, err)
+	}
+
+	// Get the current time
+	now := time.Now()
+
+	// Determine the next scheduled time
+	nextTime := sched.Next(now.Add(-60 * time.Second))
+	log.Debugf("now: %s, nextTime: %s", now, nextTime)
+	// Compare the next scheduled time with the current time
+
+	return (nextTime.Minute() == now.Minute()) && (nextTime.Hour() == now.Hour()) && (nextTime.Day() == now.Day()) && (nextTime.Month() == now.Month()) && (nextTime.Year() == now.Year())
 }
