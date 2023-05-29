@@ -33,7 +33,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 		for {
 			// update record.
 			record.CostTime = int64(time.Now().Sub(startTime).Seconds())
-			log.Infof("update.", tea.Prettify(record))
+			log.Infof("update.%s", tea.Prettify(record))
 			err := w.RequestC.RecordUpdate(record)
 			if err != nil {
 				log.Errorf("record update error: %v", err)

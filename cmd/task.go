@@ -192,7 +192,7 @@ func applyTask(cmd *cobra.Command, args []string) {
 	// apply task
 	for _, taskJson := range tasksJson {
 		if dryRun {
-			fmt.Println(tea.Prettify(taskJson) + "		dry run, not apply task.")
+			fmt.Println(tea.Prettify(taskJson) + "\n#######dry run, not apply task.#######")
 			continue
 		}
 		taskID, err := requestC.TaskApply(taskJson)
