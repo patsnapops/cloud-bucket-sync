@@ -25,6 +25,7 @@ func NewWorkerService(bucketIo model.BucketIo, requestC model.RequestContract, t
 
 // 一次同步任务，不考虑增量，对象来源于源桶调用的ls接口
 func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
+	errorKeys := make(model.ErrorKeys, 0)
 	startTime := time.Now()
 	objectsChan := make(chan *model.ChanObject, 1000)
 	sourceBucket, sourcePrefix := model.ParseBucketAndPrefix(task.SourceUrl)
@@ -33,13 +34,13 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 		for {
 			// update record.
 			record.CostTime = int64(time.Now().Sub(startTime).Seconds())
-			log.Infof("update.%s", tea.Prettify(record))
+			log.Debugf("update.%v", *record)
 			err := w.RequestC.RecordUpdate(record)
 			if err != nil {
 				log.Errorf("record update error: %v", err)
 			}
 			if record.Status != model.TaskRunning {
-				log.Infof("stop sync record %s", tea.Prettify(record))
+				log.Infof("stop sync record %v", *record)
 				return
 			}
 			time.Sleep(1 * time.Second)
@@ -53,7 +54,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 		TimeAfter:  model.StringToTime(task.TimeAfter),
 		Limit:      0,
 	}, objectsChan)
-	log.Infof("start sync task %s", tea.Prettify(task))
+	log.Infof("start sync task %v", task)
 	// 设置并发数
 	threadNumChan := make(chan int8, 10)
 	for object := range objectsChan {
@@ -64,14 +65,22 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 			if task.IsServerSide {
 				err := w.BucketIo.CopyObjectServerSide(task.SourceProfile, sourceBucket, *object.Obj, targetBucket, targetKey)
 				if err != nil {
-					log.Errorf("%s - copy object error: %v", record.Id, err)
+					errorKeys = append(errorKeys, model.ErrorKey{
+						Func: "CopyObjectServerSide",
+						Key:  object.Obj.Key,
+						Err:  err,
+					})
 					record.FailedFiles++
 				}
 				log.Infof("%s - copy object %s/%s success", record.Id, targetBucket, object.Obj.Key)
 			} else {
 				err := w.BucketIo.CopyObjectClientSide(task.SourceProfile, task.TargetProfile, sourceBucket, *object.Obj, targetBucket, targetKey)
 				if err != nil {
-					log.Errorf("%s - copy object error: %v", record.Id, err)
+					errorKeys = append(errorKeys, model.ErrorKey{
+						Func: "CopyObjectClientSide",
+						Key:  object.Obj.Key,
+						Err:  err,
+					})
 					record.FailedFiles++
 				}
 				log.Infof("%s upload object %s/%s success", record.Id, targetBucket, object.Obj.Key)
@@ -88,8 +97,20 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 		}
 		time.Sleep(1 * time.Second)
 	}
-	log.Infof("sync task %s record %s success totalFile:%d,totalSize:%s", task.Id, record.Id, record.TotalFiles, model.FormatSize(record.TotalSize))
-	w.RequestC.RecordUpdateStatus(record.Id, model.TaskSuccess)
+
+	// 汇总结果
+	if len(errorKeys) > 0 {
+		// not all success
+		record.Status = model.TaskNotAllSuccess
+		log.Infof("sync task %s record %s not all success totalFile:%d,totalSize:%s", task.Id, record.Id, record.TotalFiles, model.FormatSize(record.TotalSize))
+		filePath := errorKeys.ToJsonFile(record.Id)
+		record.Info = *filePath //TODO: upload to server.
+	} else {
+		// all success
+		record.Status = model.TaskSuccess
+		log.Infof("sync task %s record %s success totalFile:%d,totalSize:%s", task.Id, record.Id, record.TotalFiles, model.FormatSize(record.TotalSize))
+	}
+	w.RequestC.RecordUpdateStatus(record.Id, record.Status)
 }
 
 // $0.0025 per 1 million objects listed in S3 Inventory

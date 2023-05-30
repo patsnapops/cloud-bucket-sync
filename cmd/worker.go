@@ -3,10 +3,12 @@ package cmd
 import (
 	"cbs/pkg/model"
 	"cbs/pkg/service"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/alibabacloud-go/tea/tea"
+	"github.com/olekukonko/tablewriter"
 	"github.com/patsnapops/noop/log"
 	"github.com/spf13/cobra"
 )
@@ -24,6 +26,8 @@ func init() {
 	runWorker.Flags().StringVarP(&region, "region", "", "cn", "eg: cn, us, eu, ap")
 	runWorker.Flags().StringVarP(&cloud, "cloud", "", "aws", "eg: aws, azure, aliyun, huawei, tencent, google")
 	runWorker.Flags().Int64VarP(&threadNum, "thread-num", "t", 100, "thread num,every thread will sync a object")
+
+	showWorkerCmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "output format, support table/json")
 }
 
 var workerCmd = &cobra.Command{
@@ -166,20 +170,25 @@ var showWorkerCmd = &cobra.Command{
 		initApp()
 		switch len(args) {
 		case 0:
-			showWorker(cmd, args)
+			workers, err := requestC.WorkerQuery(model.WorkerInput{})
+			if err != nil {
+				panic(err)
+			}
+			if outputFormat == "json" {
+				for _, worker := range workers {
+					cmd.Println(tea.Prettify(worker))
+				}
+			} else {
+				table := tablewriter.NewWriter(os.Stdout)
+				table.SetHeader([]string{"ID", "Cloud", "Region", "Hc"})
+				for _, worker := range workers {
+					table.Append([]string{worker.ID, worker.Cloud, worker.Region, worker.Hc.Format("2006-01-02 15:04:05")})
+				}
+				table.Render()
+			}
+
 		default:
 			cmd.Help()
 		}
 	},
-}
-
-func showWorker(cmd *cobra.Command, args []string) {
-	workers, err := requestC.WorkerQuery(model.WorkerInput{})
-	if err != nil {
-		panic(err)
-	}
-	for _, worker := range workers {
-		cmd.Println(tea.Prettify(worker))
-		// fmt.Println(requestC.WorkerHcUpdate(worker.ID))
-	}
 }

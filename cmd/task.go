@@ -87,7 +87,7 @@ var showCmd = &cobra.Command{
 			if err != nil {
 				panic(err)
 			}
-			// only show last 10 records
+			// only show last 5 records
 			records, err := requestC.RecordQuery(model.RecordInput{
 				TaskID: taskID,
 			})
@@ -95,6 +95,7 @@ var showCmd = &cobra.Command{
 				records = []model.Record{}
 			}
 			if len(records) > 5 {
+				fmt.Println("only show last 5 record by create_at...")
 				records = records[len(records)-5:]
 			}
 			for _, task := range tasks {
@@ -102,9 +103,6 @@ var showCmd = &cobra.Command{
 					Task:    *task,
 					Records: records,
 				}))
-			}
-			if len(records) > 5 {
-				fmt.Println("only show last 5 record by create_at...")
 			}
 		default:
 			cmd.Help()

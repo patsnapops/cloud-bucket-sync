@@ -1,6 +1,7 @@
 package model
 
 import (
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -89,6 +90,34 @@ type BucketIo interface {
 type ChanObject struct {
 	Obj *Object
 	Dir *string
+	Err error
+}
+
+type ErrorKeys []ErrorKey
+
+// fmt ErrorKeys to jsonFile
+func (e ErrorKeys) ToJsonFile(record_id string) *string {
+	// 本地创建json文件
+	jsonFile := path.Join("/tmp/cbs/", record_id+".json")
+	// 创建文件
+	f, err := os.Create(jsonFile)
+	if err != nil {
+		log.Errorf("create jsonFile error: %v", err)
+		return nil
+	}
+	defer f.Close()
+	// 写入文件
+	for _, v := range e {
+		f.WriteString(v.Func + " " + v.Key + " " + strings.ReplaceAll(v.Err.Error(), "\n", "") + "\n")
+	}
+	log.Infof("write error keys to jsonFile: %v", jsonFile)
+	return &jsonFile
+}
+
+type ErrorKey struct {
+	Func string
+	Key  string
+	Err  error
 }
 
 // 过滤对象，符合条件返回true 默认都符合
