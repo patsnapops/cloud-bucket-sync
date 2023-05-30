@@ -1,19 +1,13 @@
 [
     {
-        "name": "这是个定时任务同步任务",
-        "exclude": "",
-        "include": "",
-        "corn": "0 */2 * * ?",
-        "worker_tag":"aws-cn",
-        "is_server_side": true,
+        "name": "rdSyncTask",
+        "sync_mode": "keepSync",
+        "worker_tag":"aws-us",
+        "is_server_side": false,
         "source_profile": "proxy",
-        "source_url": "s3://ops-9554/cbs/serverSideTask/",
-        "submitter": "zhoushoujian",
-        "sync_mode": "syncOnce",
         "target_profile": "proxy",
-        "target_url": "s3://ops-9554/cbs/test/serverSideTask/",
-        "time_after": "",
-        "time_before": "",
-        "storage_class":""
+        "source_url": "s3://rnd-internal-cn-northwest-1.zhihuiya.com/services/modelhub/",
+        "target_url": "s3://rnd-internal-us-east-1.patsnap.com/services/modelhub/",
+        "submitter": "lushijie"
     }
 ]

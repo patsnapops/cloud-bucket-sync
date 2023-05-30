@@ -8,12 +8,12 @@ type Task struct {
 	UpdatedAt     time.Time `json:"updated_at" gorm:"column:updated_at"`
 	IsDeleted     bool      `json:"is_deleted" gorm:"not null;default:false"`
 	WorkerTag     string    `json:"worker_tag" gorm:"not null;default:''" binding:"required"`                                                                     // 任务执行节点, 用于标记任务归属于哪个worker,会涉及到费用，需要注意选择正确的workerTag。借鉴与gitlab CICD runner.
-	IsServerSide  bool      `json:"is_server_side" gorm:"not null;default:true"`                                                                                  // 是否跨区域,默认启用，决定是否流量经过本地，涉及到流量费用
+	IsServerSide  bool      `json:"is_server_side" gorm:"not null;default:true" binding:"required"`                                                               // 是否跨区域,默认启用，决定是否流量经过本地，涉及到流量费用
 	Name          string    `json:"name" gorm:"not null" binding:"required"`                                                                                      // 任务名称
 	SourceUrl     string    `json:"source_url" gorm:"not null" binding:"required"`                                                                                // S3URL s3://sourceBucket/key 支持文件和目录结尾
 	TargetUrl     string    `json:"target_url" gorm:"not null" binding:"required"`                                                                                // S3URL s3://destBucket/dir/ 不支持文件结尾 没有/的目录看作目录处理
-	SourceProfile string    `json:"source_profile" gorm:"not null" binding:"required" example:"cn3977"`                                                           // 源Profile配置 可选 cn9554,cn3977,cn0536,us7478,us0066,us1549,tx-cn,tx-us
-	TargetProfile string    `json:"target_profile" gorm:"not null" binding:"required" example:"us7478"`                                                           // 目标Profile配置 可选 cn9554,cn3977,cn0536,us7478,us0066,us1549,tx-cn,tx-us
+	SourceProfile string    `json:"source_profile" gorm:"not null" binding:"required" default:"proxy" example:"cn3977"`                                           // 源Profile配置 可选 cn9554,cn3977,cn0536,us7478,us0066,us1549,tx-cn,tx-us
+	TargetProfile string    `json:"target_profile" gorm:"not null" binding:"required" default:"proxy" example:"us7478"`                                           // 目标Profile配置 可选 cn9554,cn3977,cn0536,us7478,us0066,us1549,tx-cn,tx-us
 	SyncMode      string    `json:"sync_mode" gorm:"not null;default:syncOnce" binding:"required" example:"syncOnce"`                                             // 默认运行模式 syncOnce 一次性任务, KeepSync 持续同步
 	Submitter     string    `json:"submitter" binding:"required"`                                                                                                 // 提交人
 	Corn          string    `json:"corn"  gorm:"not null;default:''" example:"0 */8 * * 1,2,3,4,5" `                                                              // 格式为 分、时、日、月、周                                                      // cron表达式 用于定时任务 ’分 时 日 月 周‘

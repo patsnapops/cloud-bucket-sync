@@ -32,7 +32,7 @@ func (c *managerClient) QueryRecord(input model.RecordInput) ([]*model.Record, e
 		TaskId: input.TaskID,
 		Id:     input.RecordID,
 		Status: input.Status,
-	})
+	}).Order("created_at")
 	resL := sql.Find(&taskRecords)
 	return taskRecords, resL.Error
 }
@@ -59,7 +59,7 @@ func (c *managerClient) QueryWorker(input model.WorkerInput) ([]*model.Worker, e
 		ID:     input.WorkerID,
 		Cloud:  input.Cloud,
 		Region: input.Region,
-	}).Where("is_deleted = ?", false)
+	}).Where("is_deleted = ?", false).Order("created_at")
 	resL := sql.Find(&workers)
 	return workers, resL.Error
 }
@@ -96,7 +96,7 @@ func (c *managerClient) QueryTask(input model.TaskInput) ([]*model.Task, error) 
 		Id:        input.ID,
 		Name:      input.Name,
 		WorkerTag: input.WorkerTag,
-	}).Where("is_deleted = ?", false)
+	}).Where("is_deleted = ?", false).Order("created_at")
 	resL := sql.Find(&tasks)
 	return tasks, resL.Error
 }
