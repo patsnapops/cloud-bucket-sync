@@ -452,8 +452,8 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 		isSameEtag = true
 		return isSameEtag, nil
 	}
-	if sourceObj.Size <= model.MaxPartSize {
-		log.Debugf("file is less than 5G,use copy")
+	if sourceObj.Size <= model.MaxPartSizeForThread {
+		log.Debugf("file is less than 5G/100,use copy")
 		data, err := c.GetObject(sourceProfile, sourceBucket, sourceObj.Key)
 		if err != nil {
 			return isSameEtag, err

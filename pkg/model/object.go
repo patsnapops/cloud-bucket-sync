@@ -16,6 +16,9 @@ const (
 	// MaxPartSize - maximum part size 5GiB for a single multipart upload
 	// operation.
 	MaxPartSize = 1024 * 1024 * 1024 * 5
+
+	MaxPartSizeForThread = 1024 * 1024 * 64 // 64MB
+
 	// AbsMinPartSize - absolute minimum part size (5 MiB) below which
 	// a part in a multipart upload may not be uploaded.
 	AbsMinPartSize = 1024 * 1024 * 5

@@ -16,7 +16,6 @@
 
 更多信息： [cbs task command](./docs/cbs-task.md)
 ### 3.2 对象管理
-
 - 支持对象查询`cbs bucket ls {s3_url} -l {limit}`
 - 支持对象删除`cbs bucket rm {s3_url}`
 - 支持对象下载`cbs bucket sync {s3_url} {local_path}`
@@ -95,6 +94,7 @@ EOF
 ## 5. 更新日志
 
 ### 2023-05-31
+- 修复并发引起的内存爆炸的问题，降低对象分片上传的判定Size为5G->64M。
 - 增加实时同步任务循环时候进行任务检查，如果状态为cancel，则停止任务。
 - 修改实时任务同步的record信息和task信息使用最新的，而支持修改任务的时候，下次循环时候生效。
 

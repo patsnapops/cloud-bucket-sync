@@ -20,7 +20,16 @@ manager:
 ```
 
 ## 最佳实践
-### 1.查询task任务
+
+### 1. 提交一个或多个任务
+  
+```bash
+[root@zhoushoujianworkspace cloud-bucket-sync]# go run main.go task apply -f tests/task.json --dry-run 
+taskID: e549bcef-e4b5-4348-b8d6-8db99ae2037d
+```
+[task.json](../tests/task.json)
+
+### 2.查询task任务
 
 ```bash
 [root@zhoushoujianworkspace cloud-bucket-sync]# cbs -c ./config/ task show
@@ -37,7 +46,7 @@ manager:
                                                                                                          ---------------+--------------------------------------------------
 ```
 
-### 2.查询task任务详情
+### 3.查询task任务详情
 
 ```bash
 [root@zhoushoujianworkspace cloud-bucket-sync]# cbs -c ./config/ task show 1c1d84ae-a39f-41e4-8887-66cc1b5d0e2f
@@ -47,7 +56,7 @@ manager:
    "updated_at": "0001-01-01T00:00:00Z",
    "is_deleted": false,
    "is_server_side": true,
-   "worker": "aws-cn",
+   "worker_tag": "aws-cn", -- 这里要尽可能选择靠近目标桶的worker，因为如果你的节点流量走的nat，那么nat不管进出都收费，nat外部挂的EIP也会收费。所以我们尽可能在nat下只用流量进，因为EIP进流量是不收费。
    "name": "测试定时执行任务",
    "source_url": "s3://ops-9554/s3-proxy-test/",
    "target_url": "s3://ops-9554/zhoushoujiantest/popapi/",
@@ -68,13 +77,6 @@ manager:
    "records": null
 }
 ```
-### 3. 提交一个或多个任务
-  
-```bash
-[root@zhoushoujianworkspace cloud-bucket-sync]# go run main.go task apply -f task.json 
-taskID: e549bcef-e4b5-4348-b8d6-8db99ae2037d
-```
-[task.json](./task.json)
 
 
 ## 任务配置说明
