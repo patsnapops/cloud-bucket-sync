@@ -4,7 +4,6 @@ cbs
 config/manager.yaml
 .gitignore
 config/worker.yaml
-tests/
 docs/cbs-bucket.md
 .cbs_rm_error.txt
 *.log

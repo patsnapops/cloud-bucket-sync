@@ -30,8 +30,8 @@ func (s *ManagerService) CheckWorker() {
 		if worker.IsDeleted {
 			continue
 		}
-		// 检查worker的LastHc是否超过10分钟没更新，如果超过则认为worker挂掉，需要修复running的任务
-		if worker.UpdatedAt.Add(10 * time.Minute).Before(time.Now()) {
+		// 检查worker的LastHc是否超过5分钟没更新，如果超过则认为worker挂掉，需要修复running的任务
+		if worker.UpdatedAt.Add(5 * time.Minute).Before(time.Now()) {
 			err = s.Client.DeleteWorker(worker.ID)
 			if err != nil {
 				log.Errorf("delete worker %s failed, err: %v", worker.ID, err)
@@ -52,7 +52,6 @@ func (s *ManagerService) restartRecord(checkMap map[string]string, records []*mo
 					continue
 				}
 			}
-			log.Infof("restart record %s, task id: %s", record.Id, record.TaskId)
 			// 修改record的状态为failed
 			record.Status = model.TaskFailed
 			err := s.Client.UpdateRecord(record)
@@ -60,6 +59,7 @@ func (s *ManagerService) restartRecord(checkMap map[string]string, records []*mo
 				log.Errorf("update record %s failed, err: %v", record.Id, err)
 				continue
 			}
+			log.Infof("update record %s to failed.", record.Id)
 			// 修复running的任务
 			recordID, err := s.Client.ExecuteTask(record.TaskId, "system", record.RunningMode)
 			if err != nil {

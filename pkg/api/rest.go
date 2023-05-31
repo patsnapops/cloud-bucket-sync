@@ -43,6 +43,7 @@ func ApplyRoutes(routerGroup *gin.RouterGroup, managerio model.ManagerIo, manage
 	r1 := routerGroup.Group("/record")
 	{
 		r1.GET("", GetTaskRecordList)
+		r1.GET("/:id", GetTaskRecordDetail)
 		r1.PUT("/:id", UpdateTaskRecord)
 	}
 	// action

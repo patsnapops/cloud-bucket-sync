@@ -8,5 +8,5 @@ type FailedKey struct {
 
 type WorkerContract interface {
 	SyncOnce(task Task, record *Record)
-	KeepSync(task Task, record *Record)
+	KeepSync(taskId, recordId string)
 }

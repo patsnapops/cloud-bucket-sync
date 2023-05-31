@@ -261,15 +261,21 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 			continue
 		}
 		if profileFrom != profileTo {
-			err := bucketIo.CopyObjectClientSide(profileFrom, profileTo, srcBucketName, *object.Obj, dstBucketName, targetKey)
+			isSameEtag, err := bucketIo.CopyObjectClientSide(profileFrom, profileTo, srcBucketName, *object.Obj, dstBucketName, targetKey)
 			if err != nil {
 				log.Errorf("copy object error:%s", err.Error())
 			}
+			if isSameEtag {
+				log.Infof("same Etag ,skip copy")
+			}
 		} else {
 			// 同region直接copy
-			err := bucketIo.CopyObjectServerSide(profileFrom, srcBucketName, *object.Obj, dstBucketName, targetKey)
+			isSameEtag, err := bucketIo.CopyObjectServerSide(profileFrom, srcBucketName, *object.Obj, dstBucketName, targetKey)
 			if err != nil {
 				log.Errorf("copy object error:%s", err.Error())
+			}
+			if isSameEtag {
+				log.Infof("same Etag ,skip copy")
 			}
 		}
 	}

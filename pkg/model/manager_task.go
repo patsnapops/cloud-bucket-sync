@@ -8,7 +8,7 @@ type Task struct {
 	UpdatedAt     time.Time `json:"updated_at" gorm:"column:updated_at"`
 	IsDeleted     bool      `json:"is_deleted" gorm:"not null;default:false"`
 	WorkerTag     string    `json:"worker_tag" gorm:"not null;default:''" binding:"required"`                                                                     // 任务执行节点, 用于标记任务归属于哪个worker,会涉及到费用，需要注意选择正确的workerTag。借鉴与gitlab CICD runner.
-	IsServerSide  bool      `json:"is_server_side" gorm:"not null;default:true" binding:"required"`                                                               // 是否跨区域,默认启用，决定是否流量经过本地，涉及到流量费用
+	IsServerSide  *bool     `json:"is_server_side" gorm:"not null;default:true" binding:"required"`                                                               // 是否跨区域,默认启用，决定是否流量经过本地，涉及到流量费用
 	Name          string    `json:"name" gorm:"not null" binding:"required"`                                                                                      // 任务名称
 	SourceUrl     string    `json:"source_url" gorm:"not null" binding:"required"`                                                                                // S3URL s3://sourceBucket/key 支持文件和目录结尾
 	TargetUrl     string    `json:"target_url" gorm:"not null" binding:"required"`                                                                                // S3URL s3://destBucket/dir/ 不支持文件结尾 没有/的目录看作目录处理
@@ -26,7 +26,33 @@ type Task struct {
 	StorageClass  string    `json:"storage_class" gorm:"not null;default:STANDARD"`                                                                               // 存储类型 STANDARD,STANDARD_IA,ONEZONE_IA,INTELLIGENT_TIERING,REDUCED_REDUNDANCY,STANDARD_IA,ONEZONE_IA,INTELLIGENT_TIERING,REDUCED_REDUNDANCY
 	Meta          string    `json:"meta" gorm:"type:text" example:"Expires:2022-10-12T00:00:00.000Z#Cache-Control:no-cache#Content-Encoding:gzip#x-cos-meta-x:x"` // 任务元信息
 	// IsOverwrite   *bool     `json:"is_overwrite,omitempty" gorm:"not null;default:false"`                                                                         // 是否覆盖 默认覆盖 true(弃用，接口实现了md5sum的比对。)
+}
 
+func (t *Task) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		"id":             t.Id,
+		"created_at":     t.CreatedAt,
+		"updated_at":     t.UpdatedAt,
+		"is_deleted":     t.IsDeleted,
+		"worker_tag":     t.WorkerTag,
+		"is_server_side": t.IsServerSide,
+		"name":           t.Name,
+		"source_url":     t.SourceUrl,
+		"target_url":     t.TargetUrl,
+		"source_profile": t.SourceProfile,
+		"target_profile": t.TargetProfile,
+		"sync_mode":      t.SyncMode,
+		"submitter":      t.Submitter,
+		"corn":           t.Corn,
+		"keys_url":       t.KeysUrl,
+		"is_silence":     t.IsSilence,
+		"time_before":    t.TimeBefore,
+		"time_after":     t.TimeAfter,
+		"include":        t.Include,
+		"exclude":        t.Exclude,
+		"storage_class":  t.StorageClass,
+		"meta":           t.Meta,
+	}
 }
 
 func StringToTime(str string) *time.Time {

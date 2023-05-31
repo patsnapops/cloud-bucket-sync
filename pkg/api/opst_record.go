@@ -36,6 +36,25 @@ func GetTaskRecordList(c *gin.Context) {
 	c.JSON(200, res)
 }
 
+// @Summary get task record detail
+// @Description get task record detail
+// @Tags  record
+// @Accept  json
+// @Produce  json
+// @Param id path string true "task id"
+// @Success 200 {object} model.Record
+// @Failure 500 {object} string
+// @Router /api/v1/record/{id} [get]
+func GetTaskRecordDetail(c *gin.Context) {
+	id := c.Param("id")
+	res, err := managerIo.GetRecord(id)
+	if err != nil {
+		c.JSON(500, err.Error())
+		return
+	}
+	c.JSON(200, res)
+}
+
 // @Summary update task record
 // @Description update task record;不支持status的修改，修改status需要调用接口 action接口
 // @Tags  record

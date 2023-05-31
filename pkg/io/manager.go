@@ -37,6 +37,12 @@ func (c *managerClient) QueryRecord(input model.RecordInput) ([]*model.Record, e
 	return taskRecords, resL.Error
 }
 
+func (c *managerClient) GetRecord(recordID string) (*model.Record, error) {
+	var record model.Record
+	res := c.db.Where("id = ?", recordID).First(&record)
+	return &record, res.Error
+}
+
 func (c *managerClient) UpdateRecord(record *model.Record) error {
 	recordId := record.Id
 	// log.Debugf("update record: %s", tea.Prettify(record))
@@ -141,6 +147,7 @@ func (c *managerClient) ExecuteTask(taskID, operator, runningMode string) (strin
 		TaskId:      taskID,
 		RunningMode: runningMode,
 		Operator:    operator,
+		Status:      model.TaskPending,
 	}
 	resL := c.db.Model(&recordTask).Create(&recordTask)
 	return recordTask.Id, resL.Error

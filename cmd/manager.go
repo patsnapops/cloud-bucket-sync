@@ -28,7 +28,7 @@ var (
 
 func init() {
 	apiServerCmd.AddCommand(startCmd)
-	startCmd.Flags().StringVarP(&port, "port", "p", "8080", "manager server port")
+	startCmd.Flags().StringVarP(&port, "port", "p", "8012", "manager server port")
 	startCmd.Flags().BoolVarP(&disableSchedule, "disable-schedule", "", false, "disable schedule")
 }
 
@@ -43,7 +43,7 @@ var apiServerCmd = &cobra.Command{
 
 var startCmd = &cobra.Command{
 	Use:  "start",
-	Long: "start manager server, default port is 8080",
+	Long: "start manager server, default port is 8012",
 	Run: func(cmd *cobra.Command, args []string) {
 		initApp()
 		managerIo := io.NewManagerClient(initDB(*managerConfig))
@@ -87,11 +87,11 @@ func startSchedule(managerC model.ManagerContract) {
 		return
 	}
 	c := cron.New()
-	c.AddFunc("*/10 * * * * *", func() {
+	c.AddFunc("*/30 * * * * *", func() {
 		// 检查worker状态
 		managerC.CheckWorker()
 	})
-	c.AddFunc("* * * * * *", func() {
+	c.AddFunc("1 * * * * *", func() {
 		// 检查task的cron表达式，符合条件的task会执行生成pending状态record去跑
 		managerC.CheckTaskCorn()
 	})

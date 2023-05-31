@@ -9,7 +9,7 @@ import (
 // @description     Patsnap OPS Platform API spec.
 // @termsOfService  http://swagger.io/terms/
 // @contact.name    Patsnap DevOps Team
-// @host            localhost:8080
+// @host            localhost:8012
 // @BasePath
 func main() {
 	cmd.Execute()

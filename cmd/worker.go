@@ -130,7 +130,7 @@ func run(worker model.Worker) {
 			go workerC.SyncOnce(*task, &record)
 		case "keepSync":
 			log.Debugf("keepSync")
-			go workerC.KeepSync(*task, &record)
+			go workerC.KeepSync(task.Id, record.Id)
 		default:
 			log.Errorf("unknown running mode: %s", record.RunningMode)
 		}
@@ -148,7 +148,7 @@ func checkTaskAndWorkerAffinity(task *model.Task, worker model.Worker) bool {
 	taskCloud := task.WorkerTag[0:strings.Index(task.WorkerTag, "-")]
 	taskRegion := task.WorkerTag[strings.Index(task.WorkerTag, "-")+1:]
 	if taskCloud != worker.Cloud || taskRegion != worker.Region {
-		log.Errorf("任务和节点不匹配 %s", task.Id)
+		log.Infof("任务和节点不匹配 %s", task.Id)
 		return false
 	}
 	return true
@@ -180,9 +180,9 @@ var showWorkerCmd = &cobra.Command{
 				}
 			} else {
 				table := tablewriter.NewWriter(os.Stdout)
-				table.SetHeader([]string{"ID", "Cloud", "Region", "Hc"})
+				table.SetHeader([]string{"ID", "Cloud", "Region", "Hc", "CreatedAt"})
 				for _, worker := range workers {
-					table.Append([]string{worker.ID, worker.Cloud, worker.Region, worker.Hc.Format("2006-01-02 15:04:05")})
+					table.Append([]string{worker.ID, worker.Cloud, worker.Region, worker.Hc.Format("2006-01-02 15:04:05"), worker.CreatedAt.Format("2006-01-02 15:04:05")})
 				}
 				table.Render()
 			}

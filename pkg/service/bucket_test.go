@@ -34,7 +34,7 @@ func init() {
 
 // test CopyObjectClientSide
 func TestCopyObjectClientSide(t *testing.T) {
-	err := bucketIo.CopyObjectClientSide(profileFrom, profileTo, bucketFrom, model.Object{
+	_, err := bucketIo.CopyObjectClientSide(profileFrom, profileTo, bucketFrom, model.Object{
 		Key: "p.patsnap.info/static/popAPI.png",
 	}, bucketTo, "123/123.png")
 	if err != nil {
@@ -54,7 +54,7 @@ func TestCopyObjectClientSideBig(t *testing.T) {
 		fmt.Println(err)
 	}
 	log.Debugf("size: %v", object.Size)
-	err = bucketIo.CopyObjectClientSide(profileFrom, profileTo, bucketFrom, object, bucketTo, "123/part-00082-2a050bd8-c083-4687-93f2-c1fc1fe6ae95-c000.json")
+	_, err = bucketIo.CopyObjectClientSide(profileFrom, profileTo, bucketFrom, object, bucketTo, "123/part-00082-2a050bd8-c083-4687-93f2-c1fc1fe6ae95-c000.json")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -62,7 +62,7 @@ func TestCopyObjectClientSideBig(t *testing.T) {
 
 // test CopyObjectServerSide
 func TestCopyObjectServerSide(t *testing.T) {
-	err := bucketIo.CopyObjectServerSide(profileFrom, bucketFrom, model.Object{
+	_, err := bucketIo.CopyObjectServerSide(profileFrom, bucketFrom, model.Object{
 		Key: "p.patsnap.info/static/popAPI.png",
 	}, bucketFrom, "zhoushoujiantest/123.png")
 	if err != nil {

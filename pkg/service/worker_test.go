@@ -3,12 +3,14 @@ package service_test
 import (
 	"cbs/pkg/model"
 	"testing"
+
+	"github.com/alibabacloud-go/tea/tea"
 )
 
 var (
 	serverSideTask = model.Task{
 		Name:          "serverSideTask",
-		IsServerSide:  true,
+		IsServerSide:  tea.Bool(true),
 		SourceProfile: "cn9554",
 		TargetProfile: "cn9554",
 		SourceUrl:     "s3://ops-9554/zhoushoujiantest/",

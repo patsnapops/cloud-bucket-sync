@@ -112,6 +112,42 @@ const docTemplate = `{
             }
         },
         "/api/v1/record/{id}": {
+            "get": {
+                "description": "get task record detail",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "record"
+                ],
+                "summary": "get task record detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "task id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Record"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
             "put": {
                 "description": "update task record;不支持status的修改，修改status需要调用接口 action接口",
                 "consumes": [
@@ -593,10 +629,6 @@ const docTemplate = `{
         "model.Record": {
             "type": "object",
             "properties": {
-                "Progress": {
-                    "description": "进度 0-100",
-                    "type": "integer"
-                },
                 "cost_time": {
                     "description": "耗时 单位 s",
                     "type": "integer"
@@ -639,14 +671,6 @@ const docTemplate = `{
                     "description": "任务状态 请走action接口去修改。",
                     "type": "string"
                 },
-                "success_files": {
-                    "description": "成功文件数",
-                    "type": "integer"
-                },
-                "success_size": {
-                    "description": "走公网消耗流量的大小 单位 B",
-                    "type": "integer"
-                },
                 "task_id": {
                     "description": "任务ID",
                     "type": "string"
@@ -671,13 +695,15 @@ const docTemplate = `{
         "model.Task": {
             "type": "object",
             "required": [
+                "is_server_side",
                 "name",
                 "source_profile",
                 "source_url",
                 "submitter",
                 "sync_mode",
                 "target_profile",
-                "target_url"
+                "target_url",
+                "worker_tag"
             ],
             "properties": {
                 "corn": {
@@ -702,8 +728,8 @@ const docTemplate = `{
                 "is_deleted": {
                     "type": "boolean"
                 },
-                "is_overwrite": {
-                    "description": "是否覆盖 默认覆盖 true",
+                "is_server_side": {
+                    "description": "是否跨区域,默认启用，决定是否流量经过本地，涉及到流量费用",
                     "type": "boolean"
                 },
                 "is_silence": {
@@ -728,6 +754,7 @@ const docTemplate = `{
                 "source_profile": {
                     "description": "源Profile配置 可选 cn9554,cn3977,cn0536,us7478,us0066,us1549,tx-cn,tx-us",
                     "type": "string",
+                    "default": "proxy",
                     "example": "cn3977"
                 },
                 "source_url": {
@@ -743,13 +770,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "sync_mode": {
-                    "description": "运行模式, syncOnce,KeepSync",
+                    "description": "默认运行模式 syncOnce 一次性任务, KeepSync 持续同步",
                     "type": "string",
                     "example": "syncOnce"
                 },
                 "target_profile": {
                     "description": "目标Profile配置 可选 cn9554,cn3977,cn0536,us7478,us0066,us1549,tx-cn,tx-us",
                     "type": "string",
+                    "default": "proxy",
                     "example": "us7478"
                 },
                 "target_url": {
@@ -769,8 +797,8 @@ const docTemplate = `{
                 "updated_at": {
                     "type": "string"
                 },
-                "worker": {
-                    "description": "worker节点",
+                "worker_tag": {
+                    "description": "任务执行节点, 用于标记任务归属于哪个worker,会涉及到费用，需要注意选择正确的workerTag。借鉴与gitlab CICD runner.",
                     "type": "string"
                 }
             }
@@ -830,7 +858,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "v1",
-	Host:             "localhost:8080",
+	Host:             "localhost:8012",
 	BasePath:         "",
 	Schemes:          []string{},
 	Title:            "cbs manager API",

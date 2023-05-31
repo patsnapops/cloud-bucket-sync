@@ -15,7 +15,7 @@ profiles:
     endpoint: https://s3.us-east-1.amazonaws.com
 
 manager:
-  endpoint: "http://localhost:8080"
+  endpoint: "http://localhost:8012"
   api_version: "api/v1/"
 ```
 

@@ -83,8 +83,8 @@ type BucketIo interface {
 	// 高级封装的接口
 	// target和source profile要一致，否则要保证目标段和源段的profile有权限
 	// 做了是否覆盖的判断
-	CopyObjectServerSide(profile, sourceBucket string, sourceObj Object, targetBucket, targetKey string) error
-	CopyObjectClientSide(profileFrom, profileTo, sourceBucket string, sourceObj Object, targetBucket, targetKey string) error
+	CopyObjectServerSide(profile, sourceBucket string, sourceObj Object, targetBucket, targetKey string) (bool, error)
+	CopyObjectClientSide(profileFrom, profileTo, sourceBucket string, sourceObj Object, targetBucket, targetKey string) (bool, error)
 }
 
 type ChanObject struct {

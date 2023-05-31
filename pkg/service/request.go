@@ -54,17 +54,8 @@ func (r *RequestService) TaskGetByID(taskID string) (*model.Task, error) {
 
 // create task
 func (r *RequestService) TaskApply(args model.Task) (string, error) {
-	var request req.Param
-	taskID := ""
-	data, err := json.Marshal(args)
-	if err != nil {
-		return taskID, err
-	}
-	err = json.Unmarshal(data, &request)
-	if err != nil {
-		return taskID, err
-	}
-	resP, err := doRequest(r.Url+"/task", "post", request)
+	var taskID string
+	resP, err := doRequest(r.Url+"/task", "post", args.ToMap())
 	if err != nil {
 		return taskID, err
 	}
@@ -134,6 +125,19 @@ func (r *RequestService) RecordQuery(input model.RecordInput) ([]model.Record, e
 		return records, err
 	}
 	return records, nil
+}
+
+func (r *RequestService) RecordGetByID(recordID string) (*model.Record, error) {
+	var record model.Record
+	data, err := doRequest(r.Url+"/record/"+recordID, "get", nil)
+	if err != nil {
+		return &record, err
+	}
+	err = json.Unmarshal(data, &record)
+	if err != nil {
+		return &record, err
+	}
+	return &record, nil
 }
 
 // ------------------ worker ------------------

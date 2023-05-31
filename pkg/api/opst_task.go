@@ -196,7 +196,7 @@ func ExecuteTask(c *gin.Context) {
 	}
 	recordID, err := managerIo.ExecuteTask(req.TaskID, req.Operator, req.SyncMode)
 	if err != nil {
-		log.Errorf("execute task error: %v", err)
+		log.Infof("execute task error: %v", err)
 		c.JSON(500, err.Error())
 		return
 	}
