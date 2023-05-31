@@ -66,7 +66,6 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 		log.Debugf("object: %s", tea.Prettify(object))
 		if record.Status == model.TaskCancel {
 			log.Infof("got cancel signal,stop sync record %v", *record)
-			close(objectsChan)
 			break
 		}
 		threadNumChan <- 1
