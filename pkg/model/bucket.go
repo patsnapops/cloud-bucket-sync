@@ -77,12 +77,11 @@ type BucketIo interface {
 	CreateMutiUpload(profile, bucketName, object string) (string, error)
 	UploadPart(profile, bucketName, object, copySource, copySourceRange, uploadId string, partNumber int64) (*s3.CompletedPart, error)
 	UploadPartWithData(profile, bucketName, object, uploadId string, partNumber int64, data []byte) (*s3.CompletedPart, error)
-	MutiDownloadObject(profileFrom, sourceBucket string, sourceObj Object, ch chan<- *ChData)
+	MutiDownloadObject(profileFrom, sourceBucket string, sourceObj Object,sourcePart int64, ch chan<- *ChData)
 	ComplateMutiPartUpload(profile, bucketName, object, uploadId string, completed_parts []*s3.CompletedPart) error
 
 	// 高级封装的接口
 	// target和source profile要一致，否则要保证目标段和源段的profile有权限
-	// 做了是否覆盖的判断
 	CopyObjectServerSide(profile, sourceBucket string, sourceObj Object, targetBucket, targetKey string) (bool, error)
 	CopyObjectClientSide(profileFrom, profileTo, sourceBucket string, sourceObj Object, targetBucket, targetKey string) (bool, error)
 }

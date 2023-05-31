@@ -7,9 +7,12 @@ import (
 	"hash"
 	"hash/crc64"
 	"io"
-	"log"
 	"os"
+	"strconv"
+	"strings"
 	"time"
+
+	"github.com/patsnapops/noop/log"
 )
 
 const (
@@ -73,8 +76,29 @@ func FormatSize(b int64) string {
 	}
 }
 
-// partsRequired is maximum parts possible with
-// max part size of ceiling(MaxMultipartPutObjectSize / (MaxPartsCount - 1))
+func ToInt64(s string) (int64, error) {
+	i, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid int64: %s", s)
+	}
+	return i, nil
+}
+
+// 依据Etag获取源的分片数
+// 7c33fc2d3a6e1a92e5eaa20bc9bf030a-49
+func GetPartsCount(etag string) (int64, error) {
+	// 如不不包含'-'，则为单个分片
+	// 处理掉双引号
+	etag = strings.Replace(etag, "\"", "", -1)
+	log.Debugf("GetPartsCount: %s", etag)
+	if !strings.Contains(etag, "-") {
+		return 1, nil
+	} else {
+		return ToInt64(strings.Split(etag, "-")[1])
+	}
+}
+
+// 如果有源文件带上的etag分片数，返回分片数，否则根据源文件大小计算分片数
 func PartsRequired(size int64) int64 {
 	var MaxPartSize int
 	if size < MinPartSize*9999 {
@@ -124,8 +148,37 @@ func CalculateEvenSplits(size int64) (startIndex, endIndex []int64) {
 	return
 }
 
+// 类似CalculateEvenSplits 通过指定分片数量计算分片
+func CalculateEvenSplitsByParts(size int64, parts int64) (startIndex, endIndex []int64) {
+	var start int64
+	if size == 0 {
+		return
+	}
+	reqParts := parts
+	startIndex = make([]int64, reqParts)
+	endIndex = make([]int64, reqParts)
+	if start == -1 {
+		start = 0
+	}
+	quot, rem := size/reqParts, size%reqParts
+	nextStart := start
+	for j := int64(0); j < reqParts; j++ {
+		curPartSize := quot
+		if j < rem {
+			curPartSize++
+		}
+
+		cStart := nextStart
+		cEnd := cStart + curPartSize - 1
+		nextStart = cEnd + 1
+
+		startIndex[j], endIndex[j] = cStart, cEnd
+	}
+	return
+}
+
 // tencent use crc64 ,aws use md5
-func CalculateHash(path string, hashType string) (h string, b string) {
+func CalculateHashForLocalFile(path string, hashType string) (h string, b string) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", ""

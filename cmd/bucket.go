@@ -38,6 +38,10 @@ var (
 	dir       string //支持指定目录，然后处理目录下的所有的txt csv文件。
 	errorFile string //错误文件汇总文本
 )
+var (
+	// sync
+	isServerSide bool // 是否使用服务端同步
+)
 
 func init() {
 	bucketCmd.AddCommand(rmCmd)
@@ -45,7 +49,7 @@ func init() {
 	bucketCmd.AddCommand(syncCmd)
 
 	bucketCmd.PersistentFlags().StringVarP(&profileFrom, "profile_from", "p", "default", "profile name")
-	bucketCmd.PersistentFlags().StringVarP(&profileTo, "profile_to", "", "", "profile name")
+	bucketCmd.PersistentFlags().StringVarP(&profileTo, "profile_to", "", "default", "profile name")
 	bucketCmd.PersistentFlags().Int64VarP(&limit, "limit", "l", 0, "limit")
 	bucketCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "r", false, "recursive")
 	bucketCmd.PersistentFlags().StringVarP(&include, "include", "i", "", "txt or txt,csv")
@@ -55,6 +59,7 @@ func init() {
 	bucketCmd.PersistentFlags().Int64VarP(&queue, "queue", "q", 0, "queue")
 
 	syncCmd.Flags().BoolVarP(&force, "force", "f", false, "force")
+	syncCmd.Flags().BoolVarP(&isServerSide, "server-side", "s", false, "default use local network.")
 
 	rmCmd.Flags().BoolVarP(&force, "force", "f", false, "force")
 	rmCmd.Flags().Int64VarP(&threadNum, "thread-num", "t", 1, "thread num")
@@ -253,6 +258,7 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 		}
 		targetKey := model.GetTargetKey(object.Obj.Key, srcPrefix, dstPrefix)
 		if srcBucketName == dstBucketName && object.Obj.Key == targetKey {
+			log.Debugf("skip same bucket same key:%s", object.Obj.Key)
 			continue
 		}
 		if input.DryRun {
@@ -260,7 +266,8 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 			log.Infof("dry run object:%s", tea.Prettify(object))
 			continue
 		}
-		if profileFrom != profileTo {
+		if !isServerSide {
+			log.Debugf("copy object client side")
 			isSameEtag, err := bucketIo.CopyObjectClientSide(profileFrom, profileTo, srcBucketName, *object.Obj, dstBucketName, targetKey)
 			if err != nil {
 				log.Errorf("copy object error:%s", err.Error())
@@ -269,7 +276,7 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 				log.Infof("same Etag ,skip copy")
 			}
 		} else {
-			// 同region直接copy
+			log.Debugf("copy object server side")
 			isSameEtag, err := bucketIo.CopyObjectServerSide(profileFrom, srcBucketName, *object.Obj, dstBucketName, targetKey)
 			if err != nil {
 				log.Errorf("copy object error:%s", err.Error())
@@ -299,7 +306,7 @@ func syncBucketToLocal(sourceUrl, targetUrl string, input model.SyncInput) {
 		}
 		if !input.Force {
 			// 没有覆盖要去检查目标文件的hash
-			hash, base := model.CalculateHash(targetKey, "md5")
+			hash, base := model.CalculateHashForLocalFile(targetKey, "md5")
 			log.Debugf(object.Obj.ETag, hash, base)
 			if strings.Contains(object.Obj.ETag, hash) {
 				log.Infof("same etag for %s, skip.", targetKey)

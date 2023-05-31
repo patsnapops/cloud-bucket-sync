@@ -69,3 +69,9 @@ func TestCopyObjectServerSide(t *testing.T) {
 		fmt.Println(err)
 	}
 }
+
+// testEtagPart
+func TestEtagPart(t *testing.T) {
+	etag := "7c33fc2d3a6e1a92e5eaa20bc9bf030a-49"
+	fmt.Println(model.GetPartsCount(etag))
+}

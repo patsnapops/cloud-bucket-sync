@@ -43,6 +43,11 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 				log.Infof("stop sync record %v", *record)
 				return
 			}
+			if w.CheckRecordStatus(record.Id) {
+				log.Infof("got cancel signal,stop sync record %v", *record)
+				record.Status = model.TaskCancel
+				return
+			}
 			time.Sleep(1 * time.Second)
 		}
 	}(record)
@@ -59,6 +64,11 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 	threadNumChan := make(chan int8, 10)
 	for object := range objectsChan {
 		log.Debugf("object: %s", tea.Prettify(object))
+		if record.Status == model.TaskCancel {
+			log.Infof("got cancel signal,stop sync record %v", *record)
+			close(objectsChan)
+			break
+		}
 		threadNumChan <- 1
 		go func(object *model.ChanObject) {
 			defer func() {
@@ -127,6 +137,19 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 	}
 }
 
+// check record status is cancel or not.
+func (w *WorkerService) CheckRecordStatus(recordId string) bool {
+	record, err := w.RequestC.RecordGetByID(recordId)
+	if err != nil {
+		log.Errorf("get record %s error: %v", recordId, err)
+		return false
+	}
+	if record.Status == model.TaskCancel {
+		return true
+	}
+	return false
+}
+
 // $0.0025 per 1 million objects listed in S3 Inventory
 // 实现方法主要考虑到2个：
 // 1. 循环跑一次同步，第一次跑的时候，记录下所有的对象（大小，md5），然后下次跑的时候，对比记录，如果有变化，就同步.目标端对象直接覆盖（缺点，每次都是全量ls，aws 底层ls接口不支持时间条件过滤，增加API接口调用的费用。1,662,553,993对象 4.12刀）
@@ -142,7 +165,6 @@ func (w *WorkerService) KeepSync(taskId, recordId string) {
 			time.Sleep(time.Minute * 5)
 			continue
 		}
-
 		// 获取最新的record status 状态如果是 cancel状态则跳出
 		record, err := w.RequestC.RecordGetByID(recordId)
 		if err != nil {
@@ -156,5 +178,6 @@ func (w *WorkerService) KeepSync(taskId, recordId string) {
 		}
 		log.Infof("start sync task %v", *task)
 		w.SyncOnce(*task, record)
+		time.Sleep(time.Minute * 30)
 	}
 }

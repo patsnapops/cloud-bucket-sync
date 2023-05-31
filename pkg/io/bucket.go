@@ -368,15 +368,9 @@ func (c *bucketClient) HeadObject(profile, bucketName, object string) (model.Obj
 	return model.Object{}, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
 }
 
-func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sourceObj model.Object, ch chan<- *model.ChData) {
-	// 文件过大5TB？
-	totalParts := model.PartsRequired(sourceObj.Size)
-	if totalParts > 10000 {
-		log.Errorf("object %s size %d > 5TB, can not download", sourceObj.Key, sourceObj.Size)
-		close(ch)
-	}
+func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sourceObj model.Object, sourcePart int64, ch chan<- *model.ChData) {
 	var partIndex int64 = 0
-	startIdx, endIdx := model.CalculateEvenSplits(sourceObj.Size)
+	startIdx, endIdx := model.CalculateEvenSplitsByParts(sourceObj.Size, sourcePart)
 	// Do we need more parts
 	for j, start := range startIdx {
 		partIndex++
@@ -396,30 +390,22 @@ func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sour
 // profile 必须同时具有sourceBucket和targetBucket的权限，或者指定一方，另一方权限公开读;
 // 全部在云上操作，不需要下载到本地。
 func (c *bucketClient) CopyObjectServerSide(profile, sourceBucket string, sourceObj model.Object, targetBucket, targetKey string) (bool, error) {
+	// 直接依据源目标的分片数决定是否需要分片上传
+	sourcePart, err := model.GetPartsCount(sourceObj.ETag)
+	if err != nil {
+		sourcePart = 1
+	}
 	if c.isSameMd5(sourceObj, profile, targetBucket, targetKey) {
 		return true, nil
 	}
-	var partIndex int64 = 0
-	// 低于5G的数据直接使用copy
-	if sourceObj.Size <= model.MaxPartSize {
-		// TODO:需要支持文件到目录的格式
-		err := c.copyObject(profile, sourceBucket, sourceObj, targetBucket, targetKey)
-		return false, err
-	} else {
-		// 文件过大5TB？
-		totalParts := model.PartsRequired(sourceObj.Size)
-		// Do we need more parts than we are allowed?
-		if totalParts > model.MaxPartsCount {
-			return false, fmt.Errorf("Your proposed compose object requires more than %d parts", model.MaxPartsCount)
-		}
+	if sourcePart > 1 {
+		// 大于1个分片的文件，直接分片拷贝
+		var partIndex int64 = 0
 		upload_id, err := c.CreateMutiUpload(profile, targetBucket, targetKey)
 		if err != nil {
 			return false, err
 		}
-
-		startIdx, endIdx := model.CalculateEvenSplits(sourceObj.Size)
-		// log.Debugf("calculateEvenSplits", startIdx, endIdx)
-
+		startIdx, endIdx := model.CalculateEvenSplitsByParts(sourceObj.Size, sourcePart)
 		var completed_parts []*s3.CompletedPart
 		for j, start := range startIdx {
 			partIndex++
@@ -433,7 +419,7 @@ func (c *bucketClient) CopyObjectServerSide(profile, sourceBucket string, source
 				break
 			}
 			completed_parts = append(completed_parts, part)
-			log.Infof(`UploadPartCopy s3://%s/%s %d/%d`, targetBucket, targetKey, partIndex, totalParts)
+			log.Infof(`UploadPartCopy s3://%s/%s %d/%d`, targetBucket, targetKey, partIndex, sourcePart)
 		}
 		err = c.ComplateMutiPartUpload(profile, targetBucket, targetKey, upload_id, completed_parts)
 		if err != nil {
@@ -442,6 +428,10 @@ func (c *bucketClient) CopyObjectServerSide(profile, sourceBucket string, source
 			log.Infof(`muticopy s3://%s/%s => s3://%s/%s %s`, sourceBucket, sourceObj.Key, targetBucket, targetKey, model.FormatSize(sourceObj.Size))
 			return false, nil
 		}
+	} else {
+		// TODO:需要支持文件到目录的格式
+		err := c.copyObject(profile, sourceBucket, sourceObj, targetBucket, targetKey)
+		return false, err
 	}
 }
 
@@ -452,8 +442,43 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 		isSameEtag = true
 		return isSameEtag, nil
 	}
-	if sourceObj.Size <= model.MaxPartSizeForThread {
-		log.Debugf("file is less than 5G/100,use copy")
+	sourcePart, err := model.GetPartsCount(sourceObj.ETag)
+	if err != nil {
+		sourcePart = 1
+	}
+	log.Debugf("sourcePart:%d", sourcePart)
+	if sourcePart > 1 {
+		var partIndex int64 = 0
+		// Do we need more parts than we are allowed?
+		if sourcePart > model.MaxPartsCount {
+			return isSameEtag, fmt.Errorf("Your proposed compose object requires more than %d parts", model.MaxPartsCount)
+		}
+
+		upload_id, err := c.CreateMutiUpload(targetProfile, targetBucket, targetKey)
+		if err != nil {
+			return isSameEtag, err
+		}
+		ch := make(chan *model.ChData, 100)
+		go c.MutiDownloadObject(sourceProfile, sourceBucket, sourceObj, sourcePart, ch)
+		var completed_parts []*s3.CompletedPart
+		for mutiData := range ch {
+			partIndex++
+			part, err := c.UploadPartWithData(targetProfile, targetBucket, targetKey, upload_id, partIndex, mutiData.Data)
+			if err != nil {
+				log.Fatal(err.Error())
+				break
+			}
+			completed_parts = append(completed_parts, part)
+			log.Infof(`UploadPart s3://%s/%s %d/%d`, targetBucket, targetKey, partIndex, sourcePart)
+		}
+		err = c.ComplateMutiPartUpload(targetProfile, targetBucket, targetKey, upload_id, completed_parts)
+		if err != nil {
+			return isSameEtag, err
+		} else {
+			log.Infof(`muticopy s3://%s/%s => s3://%s/%s %s`, sourceBucket, sourceObj.Key, targetBucket, targetKey, model.FormatSize(sourceObj.Size))
+			return isSameEtag, nil
+		}
+	} else {
 		data, err := c.GetObject(sourceProfile, sourceBucket, sourceObj.Key)
 		if err != nil {
 			return isSameEtag, err
@@ -464,40 +489,6 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 		}
 		log.Infof(`copy s3://%s/%s => s3://%s/%s %s`, sourceBucket, sourceObj.Key, targetBucket, strings.TrimPrefix(targetKey, "/"), model.FormatSize(sourceObj.Size))
 		return isSameEtag, nil
-	} else {
-		log.Debugf("file is more than 5G,use muticopy")
-		// 文件过大5TB？
-		var partIndex int64 = 0
-		totalParts := model.PartsRequired(sourceObj.Size)
-		// Do we need more parts than we are allowed?
-		if totalParts > model.MaxPartsCount {
-			return isSameEtag, fmt.Errorf("Your proposed compose object requires more than %d parts", model.MaxPartsCount)
-		}
-
-		upload_id, err := c.CreateMutiUpload(targetProfile, targetBucket, targetKey)
-		if err != nil {
-			return isSameEtag, err
-		}
-		ch := make(chan *model.ChData, 100)
-		go c.MutiDownloadObject(sourceProfile, sourceBucket, sourceObj, ch)
-		var completed_parts []*s3.CompletedPart
-		for mutiData := range ch {
-			partIndex++
-			part, err := c.UploadPartWithData(targetProfile, targetBucket, targetKey, upload_id, partIndex, mutiData.Data)
-			if err != nil {
-				log.Fatal(err.Error())
-				break
-			}
-			completed_parts = append(completed_parts, part)
-			log.Infof(`UploadPart s3://%s/%s %d/%d`, targetBucket, targetKey, partIndex, totalParts)
-		}
-		err = c.ComplateMutiPartUpload(targetProfile, targetBucket, targetKey, upload_id, completed_parts)
-		if err != nil {
-			return isSameEtag, err
-		} else {
-			log.Infof(`muticopy s3://%s/%s => s3://%s/%s %s`, sourceBucket, sourceObj.Key, targetBucket, targetKey, model.FormatSize(sourceObj.Size))
-			return isSameEtag, nil
-		}
 	}
 }
 
