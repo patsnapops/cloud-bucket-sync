@@ -262,6 +262,7 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 			log.Debugf("skip same bucket same key:%s", object.Obj.Key)
 			continue
 		}
+		log.Debugf("%s => %s", object.Obj.Key, targetKey)
 		if input.DryRun {
 			log.Infof("%s => %s", object.Obj.Key, targetKey)
 			log.Infof("dry run object:%s", tea.Prettify(object))
@@ -289,7 +290,7 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 	}
 }
 
-func syncBucketToLocal(sourceUrl, targetUrl string, input model.SyncInput) {
+func syncBucketToLocal(sourceUrl, targetKey string, input model.SyncInput) {
 	// sync bucket to local
 	bucketName, prefix := model.ParseBucketAndPrefix(sourceUrl)
 	// 获取源所有的key
@@ -299,7 +300,6 @@ func syncBucketToLocal(sourceUrl, targetUrl string, input model.SyncInput) {
 		if object.Obj == nil {
 			continue
 		}
-		targetKey := model.GetTargetKey(object.Obj.Key, prefix, targetUrl)
 		if input.DryRun {
 			log.Infof("%s => %s", object.Obj.Key, targetKey)
 			log.Debugf("dry run object:%s", tea.Prettify(object))

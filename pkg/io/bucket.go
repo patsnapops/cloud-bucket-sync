@@ -205,6 +205,26 @@ func (c *bucketClient) CreateMutiUpload(profile, bucketName, object string) (str
 	return "", fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
 }
 
+// abortmultipartupload
+func (c *bucketClient) AbortMutiPartUpload(profile, bucketName, object, uploadId string) error {
+	if sess, ok := c.sessions[profile]; ok {
+		svc := s3.New(sess)
+		input := &s3.AbortMultipartUploadInput{
+			Bucket:   aws.String(bucketName),
+			Key:      aws.String(object),
+			UploadId: aws.String(uploadId),
+		}
+		resp, err := svc.AbortMultipartUpload(input)
+		if err != nil {
+			return err
+		}
+		log.Debugf(tea.Prettify(resp))
+		return nil
+	}
+	return fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
+}
+
+// server side &client all use this.
 func (c *bucketClient) ComplateMutiPartUpload(profile, bucketName, object, uploadId string, completed_parts []*s3.CompletedPart) error {
 	if sess, ok := c.sessions[profile]; ok {
 		svc := s3.New(sess)
@@ -222,6 +242,11 @@ func (c *bucketClient) ComplateMutiPartUpload(profile, bucketName, object, uploa
 			return err
 		}
 		log.Debugf(tea.Prettify(resp))
+		// abort mutipart upload
+		err = c.AbortMutiPartUpload(profile, bucketName, object, uploadId)
+		if err != nil {
+			log.Errorf("abort mutipart upload error %s", err)
+		}
 		return nil
 	}
 	return fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
@@ -393,23 +418,23 @@ func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sour
 // 依据文件大小判断是否需要分片，实现文件的拷贝；
 // profile 必须同时具有sourceBucket和targetBucket的权限，或者指定一方，另一方权限公开读;
 // 全部在云上操作，不需要下载到本地。
-func (c *bucketClient) CopyObjectServerSide(profile, sourceBucket string, sourceObj model.Object, targetBucket, targetKey string) (bool, error) {
+func (c *bucketClient) CopyObjectServerSide(sourceProfile, sourceBucket string, sourceObj model.Object, targetBucket, targetKey string) (bool, error) {
 
-	if c.isSameFile(sourceObj, profile, targetBucket, targetKey) {
+	if c.isSameFile(sourceObj, sourceProfile, targetBucket, targetKey) {
 		return true, nil
 	}
 	sourcePart, err := model.GetPartsCount(sourceObj.ETag)
 	if err != nil {
 		sourcePart = 1
 	}
-	contentLength, err := c.getSourceContentLength(profile, sourceBucket, sourceObj.Key)
+	contentLength, err := c.getSourceContentLength(sourceProfile, sourceBucket, sourceObj.Key)
 	if err != nil {
 		return false, err
 	}
 	if sourcePart > 1 {
 		// 大于1个分片的文件，直接分片拷贝
 		var partIndex int64 = 0
-		upload_id, err := c.CreateMutiUpload(profile, targetBucket, targetKey)
+		upload_id, err := c.CreateMutiUpload(sourceProfile, targetBucket, targetKey)
 		if err != nil {
 			return false, err
 		}
@@ -421,7 +446,7 @@ func (c *bucketClient) CopyObjectServerSide(profile, sourceBucket string, source
 			End := endIdx[j]
 			copySource := fmt.Sprintf("/%s/%s", sourceBucket, sourceObj.Key)
 			copySourceRange := fmt.Sprintf("bytes=%d-%d", Start, End)
-			part, err := c.UploadPart(profile, targetBucket, targetKey, copySource, copySourceRange, upload_id, partIndex)
+			part, err := c.UploadPart(sourceProfile, targetBucket, targetKey, copySource, copySourceRange, upload_id, partIndex)
 			if err != nil {
 				log.Fatal(err.Error())
 				break
@@ -429,7 +454,7 @@ func (c *bucketClient) CopyObjectServerSide(profile, sourceBucket string, source
 			completed_parts = append(completed_parts, part)
 			log.Infof(`UploadPartCopy s3://%s/%s %d/%d`, targetBucket, targetKey, partIndex, sourcePart)
 		}
-		err = c.ComplateMutiPartUpload(profile, targetBucket, targetKey, upload_id, completed_parts)
+		err = c.ComplateMutiPartUpload(sourceProfile, targetBucket, targetKey, upload_id, completed_parts)
 		if err != nil {
 			return false, err
 		} else {
@@ -438,7 +463,7 @@ func (c *bucketClient) CopyObjectServerSide(profile, sourceBucket string, source
 		}
 	} else {
 		// TODO:需要支持文件到目录的格式
-		err := c.copyObject(profile, sourceBucket, sourceObj, targetBucket, targetKey)
+		err := c.copyObject(sourceProfile, sourceBucket, sourceObj, targetBucket, targetKey)
 		return false, err
 	}
 }
@@ -456,7 +481,7 @@ func (c *bucketClient) getSourceContentLength(profile, bucketName, object string
 		if err != nil {
 			return 0, err
 		}
-		log.Debugf(tea.Prettify(resp))
+		log.Debugf("getSourceContentLength %s", tea.Prettify(resp))
 		return *resp.ContentLength, nil
 	}
 	return 0, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
@@ -520,6 +545,10 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 // 建议在使用 ETag 进行文件比较时，结合其他属性如文件大小和最后修改时间等进行综合判断，以确保准确性。
 func (c *bucketClient) isSameFile(object model.Object, targetProfile, targetBucket, targetKey string) bool {
 	// 没有覆盖要去检查目标文件的etag
+	isSame := false
+	defer func() {
+		log.Debugf("isSameFile %b", isSame)
+	}()
 	dstObject, err := c.HeadObject(targetProfile, targetBucket, targetKey)
 	if err != nil {
 		// except 404
@@ -528,15 +557,9 @@ func (c *bucketClient) isSameFile(object model.Object, targetProfile, targetBuck
 			return false
 		}
 	}
-	// 判断修改时间，如果源文件修改时间大于目标文件，那么就需要覆盖
-	if object.LastModified.After(dstObject.LastModified) {
-		log.Debugf("source file is  %s/%s modified. overwrite", targetBucket, targetKey)
-		return false
-	}
-
+	log.Debugf("etags: s:%s d:%s", object.ETag, dstObject.ETag)
 	if object.ETag == dstObject.ETag {
-		return true
+		isSame = true
 	}
-
-	return false
+	return isSame
 }

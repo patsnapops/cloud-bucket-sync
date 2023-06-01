@@ -189,6 +189,7 @@ func ParseBucketAndPrefix(s3Path string) (bucket, prefix string) {
 }
 
 // 同步模式计算目标对象的key，依据原本的KEY和原本的前缀，以及目标前缀
+// targetPrefix 如果没有以/结尾，则源对象的key会直接加在后面
 func GetTargetKey(key, prefix, targetPrefix string) string {
 	if prefix == "" {
 		return targetPrefix + key
