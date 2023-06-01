@@ -42,6 +42,16 @@ func TestCopyObjectClientSide(t *testing.T) {
 	}
 }
 
+// head object test
+func TestHeadObject(t *testing.T) {
+	// object, err := bucketIo.HeadObject(profileFrom, bucketFrom, "zhoushoujiantest/20230527_62559104-98af-4eed-a857-6c50bedcaa40/1685198194.mkv")
+	object, err := bucketIo.HeadObject(profileFrom, bucketFrom, "zhoushoujiantest/serverside/1685198194.mkv")
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(object)
+}
+
 // test CopyObjectClientSide 大文件
 // 必须带上准确的对象大小
 func TestCopyObjectClientSideBig(t *testing.T) {
@@ -70,8 +80,7 @@ func TestCopyObjectServerSide(t *testing.T) {
 	}
 }
 
-// testEtagPart
-func TestEtagPart(t *testing.T) {
-	etag := "7c33fc2d3a6e1a92e5eaa20bc9bf030a-49"
-	fmt.Println(model.GetPartsCount(etag))
+// test CalculateEvenSplitsByPartSize
+func TestCalculateEvenSplitsByPartSize(t *testing.T) {
+	model.CalculateEvenSplitsByPartSize(108152993, 17179870)
 }

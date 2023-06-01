@@ -149,29 +149,61 @@ func CalculateEvenSplits(size int64) (startIndex, endIndex []int64) {
 }
 
 // 类似CalculateEvenSplits 通过指定分片数量计算分片
-func CalculateEvenSplitsByParts(size int64, parts int64) (startIndex, endIndex []int64) {
+// 放弃使用，改为 CalculateEvenSplitsByPartSize
+// func CalculateEvenSplitsByParts(size int64, parts int64) (startIndex, endIndex []int64) {
+// 	var start int64
+// 	if size == 0 {
+// 		return
+// 	}
+// 	reqParts := parts
+// 	startIndex = make([]int64, reqParts)
+// 	endIndex = make([]int64, reqParts)
+// 	if start == -1 {
+// 		start = 0
+// 	}
+// 	quot, rem := size/reqParts, size%reqParts
+// 	nextStart := start
+// 	for j := int64(0); j < reqParts; j++ {
+// 		curPartSize := quot
+// 		if j < rem {
+// 			curPartSize++
+// 		}
+
+// 		cStart := nextStart
+// 		cEnd := cStart + curPartSize - 1
+// 		nextStart = cEnd + 1
+
+// 		startIndex[j], endIndex[j] = cStart, cEnd
+// 	}
+// 	return
+// }
+
+// 类似CalculateEvenSplits 通过指定分片大小计算分片，这样能确保源和目标的etag一致
+func CalculateEvenSplitsByPartSize(size int64, partSize int64) (startIndex, endIndex []int64) {
 	var start int64
 	if size == 0 {
 		return
 	}
-	reqParts := parts
+	reqParts := size / partSize
+	if size%partSize > 0 {
+		reqParts++
+	}
 	startIndex = make([]int64, reqParts)
 	endIndex = make([]int64, reqParts)
 	if start == -1 {
 		start = 0
 	}
-	quot, rem := size/reqParts, size%reqParts
 	nextStart := start
 	for j := int64(0); j < reqParts; j++ {
-		curPartSize := quot
-		if j < rem {
-			curPartSize++
-		}
+		curPartSize := partSize
 
 		cStart := nextStart
 		cEnd := cStart + curPartSize - 1
+		if cEnd >= size {
+			cEnd = size - 1
+		}
 		nextStart = cEnd + 1
-
+		// log.Debugf("%d %d %d", cEnd-cStart, cStart, cEnd)
 		startIndex[j], endIndex[j] = cStart, cEnd
 	}
 	return

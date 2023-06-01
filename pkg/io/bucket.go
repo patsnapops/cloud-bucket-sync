@@ -216,11 +216,12 @@ func (c *bucketClient) ComplateMutiPartUpload(profile, bucketName, object, uploa
 			},
 			UploadId: aws.String(uploadId),
 		}
-
-		_, err := svc.CompleteMultipartUpload(input)
+		// log.Debugf(tea.Prettify(input))
+		resp, err := svc.CompleteMultipartUpload(input)
 		if err != nil {
 			return err
 		}
+		log.Debugf(tea.Prettify(resp))
 		return nil
 	}
 	return fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
@@ -242,6 +243,7 @@ func (c *bucketClient) UploadPart(profile, bucketName, object, copySource, copyS
 		if err != nil {
 			return nil, err
 		}
+		log.Debugf("copySourceRange %s etag:%s", copySourceRange, *resp.CopyPartResult.ETag)
 		return &s3.CompletedPart{
 			ETag:       resp.CopyPartResult.ETag,
 			PartNumber: aws.Int64(partNumber),
@@ -353,11 +355,13 @@ func (c *bucketClient) HeadObject(profile, bucketName, object string) (model.Obj
 		input := &s3.HeadObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(object),
+			// PartNumber: aws.Int64(7),
 		}
 		resp, err := svc.HeadObject(input)
 		if err != nil {
 			return model.Object{}, err
 		}
+		log.Debugf(tea.Prettify(resp))
 		return model.Object{
 			Key:          object,
 			Size:         *resp.ContentLength,
@@ -368,9 +372,9 @@ func (c *bucketClient) HeadObject(profile, bucketName, object string) (model.Obj
 	return model.Object{}, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
 }
 
-func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sourceObj model.Object, sourcePart int64, ch chan<- *model.ChData) {
+func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sourceObj model.Object, sourcePart, contentLength int64, ch chan<- *model.ChData) {
 	var partIndex int64 = 0
-	startIdx, endIdx := model.CalculateEvenSplitsByParts(sourceObj.Size, sourcePart)
+	startIdx, endIdx := model.CalculateEvenSplitsByPartSize(sourceObj.Size, contentLength)
 	// Do we need more parts
 	for j, start := range startIdx {
 		partIndex++
@@ -390,13 +394,17 @@ func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sour
 // profile 必须同时具有sourceBucket和targetBucket的权限，或者指定一方，另一方权限公开读;
 // 全部在云上操作，不需要下载到本地。
 func (c *bucketClient) CopyObjectServerSide(profile, sourceBucket string, sourceObj model.Object, targetBucket, targetKey string) (bool, error) {
-	// 直接依据源目标的分片数决定是否需要分片上传
+
+	if c.isSameFile(sourceObj, profile, targetBucket, targetKey) {
+		return true, nil
+	}
 	sourcePart, err := model.GetPartsCount(sourceObj.ETag)
 	if err != nil {
 		sourcePart = 1
 	}
-	if c.isSameMd5(sourceObj, profile, targetBucket, targetKey) {
-		return true, nil
+	contentLength, err := c.getSourceContentLength(profile, sourceBucket, sourceObj.Key)
+	if err != nil {
+		return false, err
 	}
 	if sourcePart > 1 {
 		// 大于1个分片的文件，直接分片拷贝
@@ -405,7 +413,7 @@ func (c *bucketClient) CopyObjectServerSide(profile, sourceBucket string, source
 		if err != nil {
 			return false, err
 		}
-		startIdx, endIdx := model.CalculateEvenSplitsByParts(sourceObj.Size, sourcePart)
+		startIdx, endIdx := model.CalculateEvenSplitsByPartSize(sourceObj.Size, contentLength)
 		var completed_parts []*s3.CompletedPart
 		for j, start := range startIdx {
 			partIndex++
@@ -435,10 +443,29 @@ func (c *bucketClient) CopyObjectServerSide(profile, sourceBucket string, source
 	}
 }
 
+// 判断是否进行分片传输，是返回true，否返回false，并且返回需要分片的大小
+func (c *bucketClient) getSourceContentLength(profile, bucketName, object string) (int64, error) {
+	if sess, ok := c.sessions[profile]; ok {
+		svc := s3.New(sess)
+		input := &s3.HeadObjectInput{
+			Bucket:     aws.String(bucketName),
+			Key:        aws.String(object),
+			PartNumber: aws.Int64(1),
+		}
+		resp, err := svc.HeadObject(input)
+		if err != nil {
+			return 0, err
+		}
+		log.Debugf(tea.Prettify(resp))
+		return *resp.ContentLength, nil
+	}
+	return 0, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
+}
+
 // 依据文件大小决定是用PutObject，还是分片上传；这里设置文件大小为5G，超过5G的文件使用分片上传；
 func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, sourceBucket string, sourceObj model.Object, targetBucket, targetKey string) (bool, error) {
 	isSameEtag := false
-	if c.isSameMd5(sourceObj, targetProfile, targetBucket, targetKey) {
+	if c.isSameFile(sourceObj, targetProfile, targetBucket, targetKey) {
 		isSameEtag = true
 		return isSameEtag, nil
 	}
@@ -446,20 +473,18 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 	if err != nil {
 		sourcePart = 1
 	}
-	log.Debugf("sourcePart:%d", sourcePart)
+	contentLength, err := c.getSourceContentLength(sourceProfile, sourceBucket, sourceObj.Key)
+	if err != nil {
+		return isSameEtag, err
+	}
 	if sourcePart > 1 {
 		var partIndex int64 = 0
-		// Do we need more parts than we are allowed?
-		if sourcePart > model.MaxPartsCount {
-			return isSameEtag, fmt.Errorf("Your proposed compose object requires more than %d parts", model.MaxPartsCount)
-		}
-
 		upload_id, err := c.CreateMutiUpload(targetProfile, targetBucket, targetKey)
 		if err != nil {
 			return isSameEtag, err
 		}
 		ch := make(chan *model.ChData, 100)
-		go c.MutiDownloadObject(sourceProfile, sourceBucket, sourceObj, sourcePart, ch)
+		go c.MutiDownloadObject(sourceProfile, sourceBucket, sourceObj, sourcePart, contentLength, ch)
 		var completed_parts []*s3.CompletedPart
 		for mutiData := range ch {
 			partIndex++
@@ -492,10 +517,9 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 	}
 }
 
-// 判断是否是相同的文件，如果是相同的文件则不进行复制
-func (c *bucketClient) isSameMd5(object model.Object, targetProfile, targetBucket, targetKey string) bool {
+// 建议在使用 ETag 进行文件比较时，结合其他属性如文件大小和最后修改时间等进行综合判断，以确保准确性。
+func (c *bucketClient) isSameFile(object model.Object, targetProfile, targetBucket, targetKey string) bool {
 	// 没有覆盖要去检查目标文件的etag
-	log.Debugf("check etag for %s/%s", targetBucket, targetKey)
 	dstObject, err := c.HeadObject(targetProfile, targetBucket, targetKey)
 	if err != nil {
 		// except 404
@@ -504,9 +528,15 @@ func (c *bucketClient) isSameMd5(object model.Object, targetProfile, targetBucke
 			return false
 		}
 	}
+	// 判断修改时间，如果源文件修改时间大于目标文件，那么就需要覆盖
+	if object.LastModified.After(dstObject.LastModified) {
+		log.Debugf("source file is  %s/%s modified. overwrite", targetBucket, targetKey)
+		return false
+	}
+
 	if object.ETag == dstObject.ETag {
-		log.Infof("same etag for %s/%s, skip.", targetBucket, targetKey)
 		return true
 	}
+
 	return false
 }

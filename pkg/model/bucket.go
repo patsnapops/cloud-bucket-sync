@@ -77,7 +77,7 @@ type BucketIo interface {
 	CreateMutiUpload(profile, bucketName, object string) (string, error)
 	UploadPart(profile, bucketName, object, copySource, copySourceRange, uploadId string, partNumber int64) (*s3.CompletedPart, error)
 	UploadPartWithData(profile, bucketName, object, uploadId string, partNumber int64, data []byte) (*s3.CompletedPart, error)
-	MutiDownloadObject(profileFrom, sourceBucket string, sourceObj Object,sourcePart int64, ch chan<- *ChData)
+	MutiDownloadObject(profileFrom, sourceBucket string, sourceObj Object, sourcePart, contentLength int64, ch chan<- *ChData)
 	ComplateMutiPartUpload(profile, bucketName, object, uploadId string, completed_parts []*s3.CompletedPart) error
 
 	// 高级封装的接口
@@ -177,8 +177,7 @@ func ListObjectsWithFilter(key Object, input Input) bool {
 
 // turn s3://bucket/prefix to bucket and prefix
 func ParseBucketAndPrefix(s3Path string) (bucket, prefix string) {
-	bucket = strings.TrimPrefix(s3Path, "s3://")
-	bucketS := strings.Split(bucket, "/")
+	bucketS := strings.Split(strings.TrimPrefix(s3Path, "s3://"), "/")
 	bucket = bucketS[0]
 	if len(bucketS) > 1 {
 		prefix = strings.Join(bucketS[1:], "/")

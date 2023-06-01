@@ -245,6 +245,7 @@ var rmCmd = &cobra.Command{
 }
 
 func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
+	log.Warnf("use this mode ,you can use --dry-run --server-side --force")
 	// sync bucket to bucket
 	srcBucketName, srcPrefix := model.ParseBucketAndPrefix(sourceUrl)
 	dstBucketName, dstPrefix := model.ParseBucketAndPrefix(targetUrl)
@@ -267,7 +268,7 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 			continue
 		}
 		if !isServerSide {
-			log.Debugf("copy object client side")
+			log.Infof("copy object client side")
 			isSameEtag, err := bucketIo.CopyObjectClientSide(profileFrom, profileTo, srcBucketName, *object.Obj, dstBucketName, targetKey)
 			if err != nil {
 				log.Errorf("copy object error:%s", err.Error())
@@ -276,7 +277,7 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 				log.Infof("same Etag ,skip copy")
 			}
 		} else {
-			log.Debugf("copy object server side")
+			log.Infof("copy object server side")
 			isSameEtag, err := bucketIo.CopyObjectServerSide(profileFrom, srcBucketName, *object.Obj, dstBucketName, targetKey)
 			if err != nil {
 				log.Errorf("copy object error:%s", err.Error())
@@ -307,15 +308,17 @@ func syncBucketToLocal(sourceUrl, targetUrl string, input model.SyncInput) {
 		if !input.Force {
 			// 没有覆盖要去检查目标文件的hash
 			hash, base := model.CalculateHashForLocalFile(targetKey, "md5")
-			log.Debugf(object.Obj.ETag, hash, base)
-			if strings.Contains(object.Obj.ETag, hash) {
+			log.Debugf("%s %s %s", object.Obj.ETag, hash, base)
+			if strings.Contains(object.Obj.ETag, hash) && hash != "" {
 				log.Infof("same etag for %s, skip.", targetKey)
 				continue
 			}
 		}
 		body, err := bucketIo.GetObject(profileFrom, bucketName, object.Obj.Key)
 		if err != nil {
+			log.Debugf("%s %s%s", profileFrom, bucketName, object.Obj.Key)
 			log.Errorf("download failed:%s", err.Error())
+			continue
 		}
 		// body 写入文件
 		err = writeToFile(targetKey, &body)
