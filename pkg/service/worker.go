@@ -40,7 +40,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 				log.Errorf("record update error: %v", err)
 			}
 			if record.Status != model.TaskRunning {
-				log.Infof("stop sync record %v", *record)
+				log.Infof("stop update record %v", *record)
 				return
 			}
 			if w.CheckRecordStatus(record.Id) {
@@ -90,6 +90,8 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 				if !isSameEtag {
 					record.TotalSize += object.Obj.Size
 					log.Infof("%s - copy object %s/%s success", record.Id, targetBucket, object.Obj.Key)
+				} else {
+					log.Debugf("%s - copy object %s/%s success. same Etag skip.", record.Id, targetBucket, object.Obj.Key)
 				}
 			} else {
 				isSameEtag, err := w.BucketIo.CopyObjectClientSide(task.SourceProfile, task.TargetProfile, sourceBucket, *object.Obj, targetBucket, targetKey)
@@ -106,13 +108,15 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 				if !isSameEtag {
 					record.TotalSize += object.Obj.Size
 					log.Infof("%s upload object %s/%s success", record.Id, targetBucket, object.Obj.Key)
+				} else {
+					log.Debugf("%s upload object %s/%s success. same Etag skip.", record.Id, targetBucket, object.Obj.Key)
 				}
 			}
 		}(object)
 	}
 	for {
 		if len(threadNumChan) == 0 {
-			record.Status = model.TaskSuccess
+			// all done
 			break
 		}
 		time.Sleep(1 * time.Second)
@@ -132,7 +136,10 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 	}
 	if record.RunningMode == string(model.ModeSyncOnce) {
 		// sync once 去更新状态，实时同步的状态更新在上层更新。
-		w.RequestC.RecordUpdateStatus(record.Id, record.Status)
+		err := w.RequestC.RecordUpdateStatus(record.Id, record.Status)
+		if err != nil {
+			log.Errorf("update record %s status error: %v", record.Id, err)
+		}
 	}
 }
 
@@ -175,7 +182,7 @@ func (w *WorkerService) KeepSync(taskId, recordId string) {
 			log.Infof("sync task %s record %s cancel", task.Id, record.Id)
 			break
 		}
-		log.Infof("start sync task %v", *task)
+		// log.Infof("start sync task %v", *task)
 		w.SyncOnce(*task, record)
 		time.Sleep(time.Minute * 30)
 	}

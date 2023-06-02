@@ -380,7 +380,6 @@ func (c *bucketClient) HeadObject(profile, bucketName, object string) (model.Obj
 		input := &s3.HeadObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(object),
-			// PartNumber: aws.Int64(7),
 		}
 		resp, err := svc.HeadObject(input)
 		if err != nil {
@@ -427,7 +426,7 @@ func (c *bucketClient) CopyObjectServerSide(sourceProfile, sourceBucket string, 
 	if err != nil {
 		sourcePart = 1
 	}
-	contentLength, err := c.getSourceContentLength(sourceProfile, sourceBucket, sourceObj.Key)
+	contentLength, err := c.GetSourceContentLength(sourceProfile, sourceBucket, sourceObj.Key)
 	if err != nil {
 		return false, err
 	}
@@ -469,7 +468,7 @@ func (c *bucketClient) CopyObjectServerSide(sourceProfile, sourceBucket string, 
 }
 
 // 判断是否进行分片传输，是返回true，否返回false，并且返回需要分片的大小
-func (c *bucketClient) getSourceContentLength(profile, bucketName, object string) (int64, error) {
+func (c *bucketClient) GetSourceContentLength(profile, bucketName, object string) (int64, error) {
 	if sess, ok := c.sessions[profile]; ok {
 		svc := s3.New(sess)
 		input := &s3.HeadObjectInput{
@@ -498,8 +497,9 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 	if err != nil {
 		sourcePart = 1
 	}
-	contentLength, err := c.getSourceContentLength(sourceProfile, sourceBucket, sourceObj.Key)
+	contentLength, err := c.GetSourceContentLength(sourceProfile, sourceBucket, sourceObj.Key)
 	if err != nil {
+		log.Debugf("getSourceContentLength err %s", err.Error())
 		return isSameEtag, err
 	}
 	if sourcePart > 1 {
@@ -547,7 +547,7 @@ func (c *bucketClient) isSameFile(object model.Object, targetProfile, targetBuck
 	// 没有覆盖要去检查目标文件的etag
 	isSame := false
 	defer func() {
-		log.Debugf("isSameFile %b", isSame)
+		log.Debugf("isSameFile %v", isSame)
 	}()
 	dstObject, err := c.HeadObject(targetProfile, targetBucket, targetKey)
 	if err != nil {

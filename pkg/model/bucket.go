@@ -66,6 +66,8 @@ type ChData struct {
 
 type BucketIo interface {
 	HeadObject(profile, bucketName, key string) (Object, error)
+	GetSourceContentLength(profile, bucketName, object string) (int64, error)
+
 	GetObject(profile, bucketName, object string) ([]byte, error)
 	UploadObject(profile, bucketName, object string, data []byte) error
 

@@ -253,7 +253,7 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 	objectsChan := make(chan *model.ChanObject, 1000)
 	go bucketIo.ListObjectsWithChan(profileFrom, srcBucketName, srcPrefix, input.Input, objectsChan)
 	for object := range objectsChan {
-		log.Debugf("object:%s", tea.Prettify(object))
+		log.Debugf("source object:%s", tea.Prettify(object))
 		if object.Obj == nil {
 			continue
 		}
