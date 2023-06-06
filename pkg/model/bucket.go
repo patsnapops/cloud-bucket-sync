@@ -82,6 +82,7 @@ type BucketIo interface {
 	UploadPartWithData(profile, bucketName, object, uploadId string, partNumber int64, data []byte) (*s3.CompletedPart, error)
 	MutiDownloadObject(profileFrom, sourceBucket string, sourceObj Object, sourcePart, contentLength int64, ch chan<- *ChData)
 
+	MutiReadFile(sourceObj LocalFile, sourcePart int64, ch chan *ChData)
 	ComplateMutiPartUpload(profile, bucketName, object, uploadId string, completed_parts []*s3.CompletedPart) error
 
 	// 高级封装的接口
