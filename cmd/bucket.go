@@ -57,12 +57,12 @@ func init() {
 	bucketCmd.PersistentFlags().StringVarP(&timeBefore, "time-before", "b", "", "2023-03-01 00:00:00")
 	bucketCmd.PersistentFlags().StringVarP(&timeAfter, "time-after", "a", "", "1992-03-01 00:00:00")
 	bucketCmd.PersistentFlags().Int64VarP(&queue, "queue", "q", 0, "queue")
+	bucketCmd.PersistentFlags().Int64VarP(&threadNum, "thread-num", "t", 1, "thread num")
 
 	syncCmd.Flags().BoolVarP(&force, "force", "f", false, "force")
 	syncCmd.Flags().BoolVarP(&isServerSide, "server-side", "s", false, "default use local network.")
 
 	rmCmd.Flags().BoolVarP(&force, "force", "f", false, "force")
-	rmCmd.Flags().Int64VarP(&threadNum, "thread-num", "t", 1, "thread num")
 	// 支持--file参数，可以从文件中读取bucket对象
 	rmCmd.Flags().StringVarP(&file, "file", "", "", "object file path,file must be key per line.")
 	// 支持--dir参数，可以从目录中读取bucket对象
@@ -292,14 +292,16 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 }
 
 func syncLocalToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
+	startTime := time.Now()
 	// sync local to bucket
 	targetBucket, prefix := model.ParseBucketAndPrefix(targetUrl)
 	// 获取本地路径的所有文件
 	total := 0
 	size := int64(0)
-	objectChan := make(chan *model.ChanObject, 1000)
+	objectChan := make(chan *model.ChanObject, queue)
 	go model.ListObjectsWithChanLocalRecursive(
 		sourceUrl, recursive, input, objectChan)
+	threadChan := make(chan int, threadNum)
 	for object := range objectChan {
 		log.Debugf("source object:%s", tea.Prettify(object))
 		total++
@@ -321,17 +323,26 @@ func syncLocalToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 				continue
 			}
 		}
-		isSameEtag, err := bucketIo.CopyObjectLocalToRemote(profileTo, *object.Obj, targetBucket, targetKey)
-		if err != nil {
-			log.Errorf("copy object error:%s", err.Error())
-		}
-		if isSameEtag {
-			log.Infof("skip same Etag:%s", object.Obj.Key)
-		} else {
-			size += object.Obj.Size
+		threadChan <- 1
+		go func(object *model.ChanObject) {
+			isSameEtag, err := bucketIo.CopyObjectLocalToRemote(profileTo, *object.Obj, targetBucket, targetKey)
+			if err != nil {
+				log.Errorf("copy object error:%s", err.Error())
+			}
+			if isSameEtag {
+				log.Infof("skip same Etag:%s", object.Obj.Key)
+			} else {
+				size += object.Obj.Size
+			}
+			<-threadChan
+		}(object)
+	}
+	for {
+		if len(threadChan) == 0 {
+			break
 		}
 	}
-	log.Infof("sync local to bucket success total:%d size(ignore skip):%s", total, model.FormatSize(size))
+	log.Infof("sync local to bucket success total:%d size(ignore skip):%s cost:%s", total, model.FormatSize(size), time.Since(startTime).String())
 }
 
 func syncBucketToLocal(sourceUrl, targetKey string, input model.SyncInput) {
