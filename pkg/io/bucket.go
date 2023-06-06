@@ -6,7 +6,6 @@ import (
 	"cbs/pkg/model"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"strings"
 
 	"github.com/alibabacloud-go/tea/tea"
@@ -240,14 +239,11 @@ func (c *bucketClient) ComplateMutiPartUpload(profile, bucketName, object, uploa
 		// log.Debugf(tea.Prettify(input))
 		resp, err := svc.CompleteMultipartUpload(input)
 		if err != nil {
+			// abort mutipart upload
+			c.AbortMutiPartUpload(profile, bucketName, object, uploadId)
 			return err
 		}
 		log.Debugf(tea.Prettify(resp))
-		// abort mutipart upload
-		err = c.AbortMutiPartUpload(profile, bucketName, object, uploadId)
-		if err != nil {
-			log.Errorf("abort mutipart upload error %s", err)
-		}
 		return nil
 	}
 	return fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
@@ -415,23 +411,19 @@ func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sour
 	close(ch)
 }
 
-func (c *bucketClient) MutiReadFile(sourceObj model.Object, sourcePart int64, ch chan *model.ChData) {
+func (c *bucketClient) MutiReadFile(sourceObj model.LocalFile, sourcePart int64, ch chan *model.ChData) {
 	var partIndex int64 = 0
 	startIdx, endIdx := model.CalculateEvenSplits(sourceObj.Size)
-	file, err := os.ReadFile(sourceObj.Key)
-	if err != nil {
-		log.Panicf("read file error:%s", err)
-	}
 	// Do we need more parts
 	for j, start := range startIdx {
 		partIndex++
 		Start := start
 		End := endIdx[j]
-		data := file[Start:End]
+		data := sourceObj.Data[Start:End]
 		ch <- &model.ChData{
 			PartIndex: partIndex,
 			Data:      data,
-			Err:       err,
+			Err:       nil,
 		}
 	}
 	close(ch)
@@ -460,6 +452,8 @@ func (c *bucketClient) CopyObjectServerSide(sourceProfile, sourceBucket string, 
 		if err != nil {
 			return false, err
 		}
+		defer c.AbortMutiPartUpload(sourceProfile, targetBucket, targetKey, upload_id)
+
 		startIdx, endIdx := model.CalculateEvenSplitsByPartSize(sourceObj.Size, contentLength)
 		var completed_parts []*s3.CompletedPart
 		for j, start := range startIdx {
@@ -474,7 +468,7 @@ func (c *bucketClient) CopyObjectServerSide(sourceProfile, sourceBucket string, 
 				break
 			}
 			completed_parts = append(completed_parts, part)
-			log.Infof(`UploadPartCopy s3://%s/%s %d/%d`, targetBucket, targetKey, partIndex, sourcePart)
+			log.Infof(`UploadPartCopy s3://%s/%s %d/%d`, targetBucket, targetKey, partIndex, len(startIdx))
 		}
 		err = c.ComplateMutiPartUpload(sourceProfile, targetBucket, targetKey, upload_id, completed_parts)
 		if err != nil {
@@ -491,8 +485,12 @@ func (c *bucketClient) CopyObjectServerSide(sourceProfile, sourceBucket string, 
 }
 
 // 判断是否进行分片传输，是返回true，否返回false，并且返回需要分片的大小
+// 腾讯云不支持查询已有对象的 content length，这里要特殊处理
 func (c *bucketClient) GetSourceContentLength(profile, bucketName, object string) (int64, error) {
 	if sess, ok := c.sessions[profile]; ok {
+		if c.istencent(bucketName) {
+			return 0, nil
+		}
 		svc := s3.New(sess)
 		input := &s3.HeadObjectInput{
 			Bucket:     aws.String(bucketName),
@@ -566,9 +564,11 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 }
 
 // 本地文件到远程文件的拷贝
-func (c *bucketClient) CopyObjectLocalToRemote(targetProfile string, sourceObj model.Object, targetBucket, targetKey string) (bool, error) {
+func (c *bucketClient) CopyObjectLocalToRemote(targetProfile string, sourceObj model.LocalFile, targetBucket, targetKey string) (bool, error) {
 	isSameEtag := false
-	if c.isSameFile(sourceObj, targetProfile, targetBucket, targetKey) {
+	if c.isSameFile(model.Object{
+		ETag: sourceObj.ETag,
+	}, targetProfile, targetBucket, targetKey) {
 		isSameEtag = true
 		return isSameEtag, nil
 	}
@@ -600,11 +600,7 @@ func (c *bucketClient) CopyObjectLocalToRemote(targetProfile string, sourceObj m
 			return isSameEtag, nil
 		}
 	} else {
-		data, err := ioutil.ReadFile(sourceObj.Key)
-		if err != nil {
-			return isSameEtag, err
-		}
-		err = c.UploadObject(targetProfile, targetBucket, targetKey, data)
+		err := c.UploadObject(targetProfile, targetBucket, targetKey, sourceObj.Data)
 		if err != nil {
 			return isSameEtag, err
 		}
@@ -613,13 +609,9 @@ func (c *bucketClient) CopyObjectLocalToRemote(targetProfile string, sourceObj m
 	}
 }
 
-// 建议在使用 ETag 进行文件比较时，结合其他属性如文件大小和最后修改时间等进行综合判断，以确保准确性。
+// 由于腾讯云目前不支持分片对象的源和目标保持一直 etag，为了保证不重复上传，需要对腾讯云的对象进行文件 size和时间校验；
 func (c *bucketClient) isSameFile(object model.Object, targetProfile, targetBucket, targetKey string) bool {
 	// 没有覆盖要去检查目标文件的etag
-	isSame := false
-	defer func() {
-		log.Debugf("isSameFile %v", isSame)
-	}()
 	dstObject, err := c.HeadObject(targetProfile, targetBucket, targetKey)
 	if err != nil {
 		// except 404
@@ -629,8 +621,28 @@ func (c *bucketClient) isSameFile(object model.Object, targetProfile, targetBuck
 		}
 	}
 	log.Debugf("etags: s:%s d:%s", object.ETag, dstObject.ETag)
-	if object.ETag == dstObject.ETag {
-		isSame = true
+	if dstObject.ETag == "" {
+		return false
 	}
-	return isSame
+	if object.ETag == dstObject.ETag {
+		return true
+	}
+	{
+		if c.istencent(targetBucket) {
+			if dstObject.LastModified.Before(object.LastModified) {
+				return false
+			}
+			if object.Size == dstObject.Size {
+				return true
+			} else {
+				return false
+			}
+		}
+	}
+	return false
+}
+
+// istencent 是否是腾讯云,依据 bucketname是否包含-1251949819 结尾
+func (c *bucketClient) istencent(bucket string) bool {
+	return strings.HasSuffix(bucket, "-1251949819")
 }

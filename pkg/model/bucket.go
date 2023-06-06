@@ -82,7 +82,6 @@ type BucketIo interface {
 	UploadPartWithData(profile, bucketName, object, uploadId string, partNumber int64, data []byte) (*s3.CompletedPart, error)
 	MutiDownloadObject(profileFrom, sourceBucket string, sourceObj Object, sourcePart, contentLength int64, ch chan<- *ChData)
 
-	MutiReadFile(sourceObj Object, sourcePart int64, ch chan *ChData)
 	ComplateMutiPartUpload(profile, bucketName, object, uploadId string, completed_parts []*s3.CompletedPart) error
 
 	// 高级封装的接口
@@ -90,7 +89,7 @@ type BucketIo interface {
 	CopyObjectServerSide(profile, sourceBucket string, sourceObj Object, targetBucket, targetKey string) (bool, error)
 	CopyObjectClientSide(profileFrom, profileTo, sourceBucket string, sourceObj Object, targetBucket, targetKey string) (bool, error)
 
-	CopyObjectLocalToRemote(targetProfile string, sourceObj Object, targetBucket, targetKey string) (bool, error)
+	CopyObjectLocalToRemote(targetProfile string, sourceObj LocalFile, targetBucket, targetKey string) (bool, error)
 }
 
 type ChanObject struct {
@@ -218,99 +217,91 @@ func GetTargetKey(key, prefix, targetPrefix string) string {
 }
 
 func ListObjectsWithChanLocalRecursive(
-	localPath string, recursive bool, input SyncInput, objectChan chan *ChanObject) {
+	localPath string, recursive bool, input SyncInput, objectChan chan *LocalFile) {
 	// 判断 localPath 是文件还是目录
 	info, err := os.Stat(localPath)
 	if err != nil {
-		log.Errorf("stat localPath error: %v", err)
-		objectChan <- &ChanObject{
-			Obj: nil,
-			Err: err,
-		}
-		return
+		log.Panicf("stat localPath error: %v", err)
 	}
 	if info.IsDir() {
 		if recursive {
 			// 递归获取目录下的所有文件
-			err := filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					log.Errorf("walk path error: %v", err)
-					return err
-				}
-				if !info.IsDir() {
-					// 如果是文件
-					// log.Debugf("walk file: %v", path)
-					etag, _ := CalculateHashForLocalFile(path, "md5")
-					objectChan <- &ChanObject{
-						Obj: &Object{
-							Key:          strings.TrimPrefix(path, localPath),
-							LastModified: info.ModTime(),
-							Size:         info.Size(),
-							ETag:         etag,
-						},
-						Err: nil,
-					}
-				}
-				return nil
-			})
-			if err != nil {
-				log.Errorf("walk path error: %v", err)
-				objectChan <- &ChanObject{
-					Obj: nil,
-					Err: err,
-				}
-			}
+			ListObjectsLocalRecursive(localPath, input, objectChan)
 		} else {
 			// 只获取目录下的文件
-			files, err := os.ReadDir(localPath)
-			if err != nil {
-				log.Errorf("read dir error: %v", err)
-				objectChan <- &ChanObject{
-					Obj: nil,
-					Err: err,
-				}
-			} else {
-				for _, file := range files {
-					if !file.IsDir() {
-						// 如果是文件
-						// log.Debugf("walk file: %v", path)
-						info, err := os.Stat(file.Name())
-						if err != nil {
-							log.Errorf("stat file error: %v", err)
-							objectChan <- &ChanObject{
-								Obj: nil,
-								Err: err,
-							}
-							continue
-						}
-						etag, _ := CalculateHashForLocalFile(file.Name(), "md5")
-						objectChan <- &ChanObject{
-							Obj: &Object{
-								Key:          strings.TrimPrefix(file.Name(), localPath),
-								LastModified: info.ModTime(),
-								Size:         info.Size(),
-								ETag:         etag,
-							},
-							Err: nil,
-						}
-					} else {
-						log.Warnf("skip dir: %v", file.Name())
-					}
-				}
-			}
+			ListObjectsWithChanLocal(localPath, input, objectChan)
 		}
 	} else {
 		// 文件
+		data, _ := os.ReadFile(localPath)
 		etag, _ := CalculateHashForLocalFile(localPath, "md5")
-		objectChan <- &ChanObject{
-			Obj: &Object{
-				Key:          localPath,
-				LastModified: info.ModTime(),
-				Size:         info.Size(),
-				ETag:         etag,
-			},
-			Err: nil,
+		objectChan <- &LocalFile{
+			Key:     path.Base(localPath),
+			ETag:    etag,
+			ModTime: info.ModTime(),
+			Size:    info.Size(),
+			Data:    data,
 		}
 	}
 	defer close(objectChan)
+}
+
+// 获取本地目录下的所有文件，不递归
+func ListObjectsWithChanLocal(localPath string, input SyncInput, objectChan chan *LocalFile) {
+	// 只获取目录下的文件
+	files, err := os.ReadDir(localPath)
+	if err != nil {
+		log.Errorf("read dir error: %v", err)
+	} else {
+		for _, file := range files {
+			if !file.IsDir() {
+				localFile := new(LocalFile)
+				localFile.Dir = localPath
+				localFile.Key = file.Name()
+				path := localPath + localFile.Key
+				info, err := os.Stat(path)
+				if err != nil {
+					log.Errorf("stat file error: %v", err)
+					continue
+				}
+				localFile.ModTime = info.ModTime()
+				localFile.Size = info.Size()
+				data, _ := os.ReadFile(path)
+				localFile.Data = data
+				etag, _ := CalculateHashForLocalFile(path, "md5")
+				localFile.ETag = etag
+				// log.Panicf(tea.Prettify(localFile))
+				objectChan <- localFile
+			} else {
+				log.Warnf("skip dir: %v", file.Name())
+			}
+		}
+	}
+}
+
+// 获取本地目录下的所有文件，递归
+func ListObjectsLocalRecursive(localPath string, input SyncInput, objectChan chan *LocalFile) {
+	err := filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			log.Errorf("walk path error: %v", err)
+			return err
+		}
+		if !info.IsDir() {
+			localFile := new(LocalFile)
+			localFile.Dir = localPath
+			localFile.Key = strings.TrimPrefix(path, strings.TrimPrefix(localPath, "./"))
+			etag, _ := CalculateHashForLocalFile(path, "md5")
+			localFile.ETag = etag
+			data, _ := os.ReadFile(path)
+			localFile.Data = data
+			localFile.ModTime = info.ModTime()
+			localFile.Size = info.Size()
+			// log.Panicf(tea.Prettify(localFile))
+			objectChan <- localFile
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("walk path error: %v", err)
+	}
 }

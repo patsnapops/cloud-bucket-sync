@@ -260,7 +260,7 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 		}
 		targetKey := model.GetTargetKey(object.Obj.Key, srcPrefix, dstPrefix)
 		if srcBucketName == dstBucketName && object.Obj.Key == targetKey {
-			log.Debugf("skip same bucket same key:%s", object.Obj.Key)
+			log.Infof("skip same bucket same key:%s", object.Obj.Key)
 			continue
 		}
 		log.Debugf("%s => %s", object.Obj.Key, targetKey)
@@ -291,48 +291,37 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 	}
 }
 
-func syncLocalToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
+func syncLocalToBucket(localPath, targetUrl string, input model.SyncInput) {
 	startTime := time.Now()
 	// sync local to bucket
 	targetBucket, prefix := model.ParseBucketAndPrefix(targetUrl)
 	// 获取本地路径的所有文件
 	total := 0
 	size := int64(0)
-	objectChan := make(chan *model.ChanObject, queue)
+	objectChan := make(chan *model.LocalFile, queue)
 	go model.ListObjectsWithChanLocalRecursive(
-		sourceUrl, recursive, input, objectChan)
+		localPath, recursive, input, objectChan)
 	threadChan := make(chan int, threadNum)
 	for object := range objectChan {
 		log.Debugf("source object:%s", tea.Prettify(object))
 		total++
-		if object.Obj == nil {
-			continue
-		}
-		targetKey := model.GetTargetKey(object.Obj.Key, sourceUrl, prefix)
-		log.Debugf("%s => %s", object.Obj.Key, targetKey)
+		targetKey := model.GetTargetKey(object.Key, localPath, prefix)
+		log.Debugf("%s => %s", object.Key, targetKey)
 		if input.DryRun {
-			log.Infof("%s => %s/%s", object.Obj.Key, targetBucket, targetKey)
+			log.Infof("%s => %s/%s", object.Key, targetBucket, targetKey)
 			log.Debugf("dry run object:%s", tea.Prettify(object))
 			continue
 		}
-		if !input.Force {
-			// 没有覆盖要去检查目标文件的hash
-			hash, _ := model.CalculateHashForLocalFile(targetKey, "md5")
-			if hash == object.Obj.ETag {
-				log.Infof("skip %s", targetKey)
-				continue
-			}
-		}
 		threadChan <- 1
-		go func(object *model.ChanObject) {
-			isSameEtag, err := bucketIo.CopyObjectLocalToRemote(profileTo, *object.Obj, targetBucket, targetKey)
+		go func(object *model.LocalFile) {
+			isSameEtag, err := bucketIo.CopyObjectLocalToRemote(profileTo, *object, targetBucket, targetKey)
 			if err != nil {
 				log.Errorf("copy object error:%s", err.Error())
 			}
 			if isSameEtag {
-				log.Infof("skip same Etag:%s", object.Obj.Key)
+				log.Infof("skip same Etag:%s", object.Key)
 			} else {
-				size += object.Obj.Size
+				size += object.Size
 			}
 			<-threadChan
 		}(object)
@@ -345,7 +334,7 @@ func syncLocalToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 	log.Infof("sync local to bucket success total:%d size(ignore skip):%s cost:%s", total, model.FormatSize(size), time.Since(startTime).String())
 }
 
-func syncBucketToLocal(sourceUrl, targetKey string, input model.SyncInput) {
+func syncBucketToLocal(sourceUrl, targetPath string, input model.SyncInput) {
 	// sync bucket to local
 	bucketName, prefix := model.ParseBucketAndPrefix(sourceUrl)
 	// 获取源所有的key
@@ -355,17 +344,18 @@ func syncBucketToLocal(sourceUrl, targetKey string, input model.SyncInput) {
 		if object.Obj == nil {
 			continue
 		}
+		targetPath := model.GetTargetKey(object.Obj.Key, prefix, targetPath)
 		if input.DryRun {
-			log.Infof("%s => %s", object.Obj.Key, targetKey)
+			log.Infof("%s => %s", object.Obj.Key, targetPath)
 			log.Debugf("dry run object:%s", tea.Prettify(object))
 			continue
 		}
 		if !input.Force {
 			// 没有覆盖要去检查目标文件的hash
-			hash, base := model.CalculateHashForLocalFile(targetKey, "md5")
+			hash, base := model.CalculateHashForLocalFile(targetPath, "md5")
 			log.Debugf("%s %s %s", object.Obj.ETag, hash, base)
 			if strings.Contains(object.Obj.ETag, hash) && hash != "" {
-				log.Infof("same etag for %s, skip.", targetKey)
+				log.Infof("same etag for %s, skip.", targetPath)
 				continue
 			}
 		}
@@ -376,11 +366,11 @@ func syncBucketToLocal(sourceUrl, targetKey string, input model.SyncInput) {
 			continue
 		}
 		// body 写入文件
-		err = writeToFile(targetKey, &body)
+		err = writeToFile(targetPath, &body)
 		if err != nil {
 			panic(err)
 		}
-		log.Infof("download success: %s", targetKey)
+		log.Infof("download success: %s", targetPath)
 	}
 }
 
