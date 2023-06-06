@@ -243,5 +243,5 @@ func CalculateHashForLocalFile(path string, hashType string) (h string, b string
 	default:
 		return "", ""
 	}
-	return h, b
+	return fmt.Sprintf("\"%s\"", h), b
 }

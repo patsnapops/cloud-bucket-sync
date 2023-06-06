@@ -23,7 +23,7 @@ var (
 	profileFrom string
 	profileTo   string
 	limit       int64
-	recursive   bool
+	recursive   bool // 是否递归
 	include     string
 	exclude     string
 	timeBefore  string
@@ -102,6 +102,7 @@ var syncCmd = &cobra.Command{
 				syncBucketToLocal(args[0], args[1], input)
 			} else if !strings.HasPrefix(args[0], "s3://") && strings.HasPrefix(args[1], "s3://") {
 				// sync local to bucket
+				syncLocalToBucket(args[0], args[1], input)
 			} else {
 				cmd.Printf("s3_url must start with s3://")
 			}
@@ -288,6 +289,49 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 			}
 		}
 	}
+}
+
+func syncLocalToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
+	// sync local to bucket
+	targetBucket, prefix := model.ParseBucketAndPrefix(targetUrl)
+	// 获取本地路径的所有文件
+	total := 0
+	size := int64(0)
+	objectChan := make(chan *model.ChanObject, 1000)
+	go model.ListObjectsWithChanLocalRecursive(
+		sourceUrl, recursive, input, objectChan)
+	for object := range objectChan {
+		log.Debugf("source object:%s", tea.Prettify(object))
+		total++
+		if object.Obj == nil {
+			continue
+		}
+		targetKey := model.GetTargetKey(object.Obj.Key, sourceUrl, prefix)
+		log.Debugf("%s => %s", object.Obj.Key, targetKey)
+		if input.DryRun {
+			log.Infof("%s => %s/%s", object.Obj.Key, targetBucket, targetKey)
+			log.Debugf("dry run object:%s", tea.Prettify(object))
+			continue
+		}
+		if !input.Force {
+			// 没有覆盖要去检查目标文件的hash
+			hash, _ := model.CalculateHashForLocalFile(targetKey, "md5")
+			if hash == object.Obj.ETag {
+				log.Infof("skip %s", targetKey)
+				continue
+			}
+		}
+		isSameEtag, err := bucketIo.CopyObjectLocalToRemote(profileTo, *object.Obj, targetBucket, targetKey)
+		if err != nil {
+			log.Errorf("copy object error:%s", err.Error())
+		}
+		if isSameEtag {
+			log.Infof("skip same Etag:%s", object.Obj.Key)
+		} else {
+			size += object.Obj.Size
+		}
+	}
+	log.Infof("sync local to bucket success total:%d size(ignore skip):%s", total, model.FormatSize(size))
 }
 
 func syncBucketToLocal(sourceUrl, targetKey string, input model.SyncInput) {

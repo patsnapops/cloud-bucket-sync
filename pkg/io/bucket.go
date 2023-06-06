@@ -6,6 +6,7 @@ import (
 	"cbs/pkg/model"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/alibabacloud-go/tea/tea"
@@ -414,6 +415,28 @@ func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sour
 	close(ch)
 }
 
+func (c *bucketClient) MutiReadFile(sourceObj model.Object, sourcePart int64, ch chan *model.ChData) {
+	var partIndex int64 = 0
+	startIdx, endIdx := model.CalculateEvenSplits(sourceObj.Size)
+	file, err := os.ReadFile(sourceObj.Key)
+	if err != nil {
+		log.Panicf("read file error:%s", err)
+	}
+	// Do we need more parts
+	for j, start := range startIdx {
+		partIndex++
+		Start := start
+		End := endIdx[j]
+		data := file[Start:End]
+		ch <- &model.ChData{
+			PartIndex: partIndex,
+			Data:      data,
+			Err:       err,
+		}
+	}
+	close(ch)
+}
+
 // 依据文件大小判断是否需要分片，实现文件的拷贝；
 // profile 必须同时具有sourceBucket和targetBucket的权限，或者指定一方，另一方权限公开读;
 // 全部在云上操作，不需要下载到本地。
@@ -538,6 +561,54 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 			return isSameEtag, err
 		}
 		log.Infof(`copy s3://%s/%s => s3://%s/%s %s`, sourceBucket, sourceObj.Key, targetBucket, strings.TrimPrefix(targetKey, "/"), model.FormatSize(sourceObj.Size))
+		return isSameEtag, nil
+	}
+}
+
+// 本地文件到远程文件的拷贝
+func (c *bucketClient) CopyObjectLocalToRemote(targetProfile string, sourceObj model.Object, targetBucket, targetKey string) (bool, error) {
+	isSameEtag := false
+	if c.isSameFile(sourceObj, targetProfile, targetBucket, targetKey) {
+		isSameEtag = true
+		return isSameEtag, nil
+	}
+	sourcePart := model.PartsRequired(sourceObj.Size)
+	var partIndex int64 = 0
+	if sourcePart > 1 {
+		upload_id, err := c.CreateMutiUpload(targetProfile, targetBucket, targetKey)
+		if err != nil {
+			return isSameEtag, err
+		}
+		ch := make(chan *model.ChData, sourcePart)
+		go c.MutiReadFile(sourceObj, sourcePart, ch)
+		var completed_parts []*s3.CompletedPart
+		for mutiData := range ch {
+			partIndex++
+			part, err := c.UploadPartWithData(targetProfile, targetBucket, targetKey, upload_id, partIndex, mutiData.Data)
+			if err != nil {
+				log.Fatal(err.Error())
+				break
+			}
+			completed_parts = append(completed_parts, part)
+			log.Infof(`UploadPart s3://%s/%s %d/%d`, targetBucket, targetKey, partIndex, sourcePart)
+		}
+		err = c.ComplateMutiPartUpload(targetProfile, targetBucket, targetKey, upload_id, completed_parts)
+		if err != nil {
+			return isSameEtag, err
+		} else {
+			log.Infof(`muticopy %s => s3://%s/%s %s`, sourceObj.Key, targetBucket, targetKey, model.FormatSize(sourceObj.Size))
+			return isSameEtag, nil
+		}
+	} else {
+		data, err := ioutil.ReadFile(sourceObj.Key)
+		if err != nil {
+			return isSameEtag, err
+		}
+		err = c.UploadObject(targetProfile, targetBucket, targetKey, data)
+		if err != nil {
+			return isSameEtag, err
+		}
+		log.Infof(`copy %s => s3://%s/%s %s`, sourceObj.Key, targetBucket, strings.TrimPrefix(targetKey, "/"), model.FormatSize(sourceObj.Size))
 		return isSameEtag, nil
 	}
 }

@@ -52,6 +52,15 @@ func TestHeadObject(t *testing.T) {
 	fmt.Println(object)
 }
 
+// test get object contentLength
+func TestGetObjectContentLength(t *testing.T) {
+	object, err := bucketIo.GetSourceContentLength("default", "cos-ops-test-tmp-1251949819", "paper_docid_relation.dump")
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(object)
+}
+
 // test CopyObjectClientSide 大文件
 // 必须带上准确的对象大小
 func TestCopyObjectClientSideBig(t *testing.T) {
