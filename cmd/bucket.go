@@ -251,7 +251,10 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 	srcBucketName, srcPrefix := model.ParseBucketAndPrefix(sourceUrl)
 	dstBucketName, dstPrefix := model.ParseBucketAndPrefix(targetUrl)
 	// 获取源所有的key
-	objectsChan := make(chan *model.ChanObject, 1000)
+	if queue == 0 {
+		queue = 1000
+	}
+	objectsChan := make(chan *model.ChanObject, queue)
 	go bucketIo.ListObjectsWithChan(profileFrom, srcBucketName, srcPrefix, input.Input, objectsChan)
 	for object := range objectsChan {
 		log.Debugf("source object:%s", tea.Prettify(object))
@@ -298,6 +301,9 @@ func syncLocalToBucket(localPath, targetUrl string, input model.SyncInput) {
 	// 获取本地路径的所有文件
 	total := 0
 	size := int64(0)
+	if queue == 0 {
+		queue = 1000
+	}
 	objectChan := make(chan *model.LocalFile, queue)
 	go model.ListObjectsWithChanLocalRecursive(
 		localPath, recursive, input, objectChan)
@@ -338,7 +344,10 @@ func syncBucketToLocal(sourceUrl, targetPath string, input model.SyncInput) {
 	// sync bucket to local
 	bucketName, prefix := model.ParseBucketAndPrefix(sourceUrl)
 	// 获取源所有的key
-	objectsChan := make(chan *model.ChanObject, 1000)
+	if queue == 0 {
+		queue = 1000
+	}
+	objectsChan := make(chan *model.ChanObject, queue)
 	go bucketIo.ListObjectsWithChan(profileFrom, bucketName, prefix, input.Input, objectsChan)
 	for object := range objectsChan {
 		if object.Obj == nil {
@@ -359,6 +368,7 @@ func syncBucketToLocal(sourceUrl, targetPath string, input model.SyncInput) {
 				continue
 			}
 		}
+		log.Debugf("%s => %s", object.Obj.Key, targetPath)
 		body, err := bucketIo.GetObject(profileFrom, bucketName, object.Obj.Key)
 		if err != nil {
 			log.Debugf("%s %s%s", profileFrom, bucketName, object.Obj.Key)

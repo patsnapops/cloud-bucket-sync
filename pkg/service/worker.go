@@ -61,7 +61,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 	}, objectsChan)
 	log.Infof("start sync task %v", task)
 	// 设置并发数
-	threadNumChan := make(chan int8, 10)
+	threadNumChan := make(chan int8, 2)
 	for object := range objectsChan {
 		log.Debugf("object: %s", tea.Prettify(object))
 		if record.Status == model.TaskCancel {
