@@ -24,27 +24,27 @@ func NewWorkerService(bucketIo model.BucketIo, requestC model.RequestContract, t
 }
 
 // 一次同步任务，不考虑增量，对象来源于源桶调用的ls接口
-func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
+func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 	errorKeys := make(model.ErrorKeys, 0)
 	startTime := time.Now()
 	objectsChan := make(chan *model.ChanObject, 1000) // 设置对象的缓存队列
 	sourceBucket, sourcePrefix := model.ParseBucketAndPrefix(task.SourceUrl)
 	targetBucket, targetPrefix := model.ParseBucketAndPrefix(task.TargetUrl)
-	go func(*model.Record) {
+	go func(model.Record) {
 		for {
 			// update record.
 			record.CostTime = int64(time.Now().Sub(startTime).Seconds())
-			log.Debugf("update.%v", *record)
+			log.Debugf("update.%v", record)
 			err := w.RequestC.RecordUpdate(record)
 			if err != nil {
 				log.Errorf("record update error: %v", err)
 			}
 			if record.Status != model.TaskRunning {
-				log.Infof("stop update record %v", *record)
+				log.Infof("stop update record %v", record)
 				return
 			}
 			if w.CheckRecordStatus(record.Id) {
-				log.Infof("got cancel signal,stop sync record %v", *record)
+				log.Infof("got cancel signal,stop sync record %v", record)
 				record.Status = model.TaskCancel
 				return
 			}
@@ -64,7 +64,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 	for object := range objectsChan {
 		log.Debugf("object: %s", tea.Prettify(object))
 		if record.Status == model.TaskCancel {
-			log.Infof("got cancel signal,stop sync record %v", *record)
+			log.Infof("got cancel signal,stop sync record %v", record)
 			break
 		}
 		threadNumChan <- 1
@@ -182,7 +182,7 @@ func (w *WorkerService) KeepSync(taskId, recordId string) {
 			break
 		}
 		// log.Infof("start sync task %v", *task)
-		w.SyncOnce(*task, record)
+		w.SyncOnce(*task, *record)
 		time.Sleep(time.Minute * 30)
 	}
 }

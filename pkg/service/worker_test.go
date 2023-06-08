@@ -26,5 +26,5 @@ var (
 
 // Test sync once
 func TestSyncOnce(t *testing.T) {
-	workerC.SyncOnce(serverSideTask, &model.Record{})
+	workerC.SyncOnce(serverSideTask, model.Record{})
 }

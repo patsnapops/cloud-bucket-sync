@@ -7,7 +7,7 @@ type RequestContract interface {
 	TaskExec(taskID, operator, syncMode string) (string, error)
 
 	RecordUpdateStatus(recordID string, status Status) error
-	RecordUpdate(*Record) error
+	RecordUpdate(Record) error
 	RecordQuery(RecordInput) ([]Record, error)
 	RecordGetByID(recordID string) (*Record, error)
 

@@ -99,7 +99,7 @@ func (r *RequestService) RecordUpdateStatus(recordID string, status model.Status
 	return nil
 }
 
-func (r *RequestService) RecordUpdate(record *model.Record) error {
+func (r *RequestService) RecordUpdate(record model.Record) error {
 	// struct to map
 	req := req.Param{}
 	data, _ := json.Marshal(record)

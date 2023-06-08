@@ -110,7 +110,7 @@ func run(worker model.Worker) {
 
 		// 更新record的workerID
 		record.WorkerId = worker.ID
-		err = requestC.RecordUpdate(&record)
+		err = requestC.RecordUpdate(record)
 		if err != nil {
 			log.Errorf("update record workerID error: %s", err)
 			continue
@@ -127,7 +127,7 @@ func run(worker model.Worker) {
 		switch record.RunningMode {
 		case "syncOnce":
 			log.Debugf("syncOnce")
-			go workerC.SyncOnce(*task, &record)
+			go workerC.SyncOnce(*task, record)
 		case "keepSync":
 			log.Debugf("keepSync")
 			go workerC.KeepSync(task.Id, record.Id)
