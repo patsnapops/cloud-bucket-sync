@@ -529,7 +529,8 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 		if err != nil {
 			return isSameEtag, err
 		}
-		ch := make(chan *model.ChData, 100)
+		threadCache := 2 // 对象切片的缓存数量，约大越占内存，但可以提高单个分片对象的完成速度。
+		ch := make(chan *model.ChData, threadCache)
 		go c.MutiDownloadObject(sourceProfile, sourceBucket, sourceObj, sourcePart, contentLength, ch)
 		var completed_parts []*s3.CompletedPart
 		for mutiData := range ch {

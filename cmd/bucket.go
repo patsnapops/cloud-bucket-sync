@@ -57,7 +57,6 @@ func init() {
 	bucketCmd.PersistentFlags().StringVarP(&timeBefore, "time-before", "b", "", "2023-03-01 00:00:00")
 	bucketCmd.PersistentFlags().StringVarP(&timeAfter, "time-after", "a", "", "1992-03-01 00:00:00")
 	bucketCmd.PersistentFlags().Int64VarP(&queue, "queue", "q", 0, "queue")
-	bucketCmd.PersistentFlags().Int64VarP(&threadNum, "thread-num", "t", 1, "thread num")
 
 	syncCmd.Flags().BoolVarP(&force, "force", "f", false, "force")
 	syncCmd.Flags().BoolVarP(&isServerSide, "server-side", "s", false, "default use local network.")
@@ -69,6 +68,9 @@ func init() {
 	rmCmd.Flags().StringVarP(&dir, "dir", "", "", "must be end with / support *.txt,*.csv")
 	// 支持--error-file参数，可以将错误的对象写入到文件中
 	rmCmd.Flags().StringVarP(&errorFile, "error-file", "", ".cbs_rm_error.txt", "error file path")
+
+	// 依据运行环境的内存大小，设置默认的线程数
+	threadNum = model.GetThreadNum()
 }
 
 var bucketCmd = &cobra.Command{

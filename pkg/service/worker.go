@@ -27,7 +27,7 @@ func NewWorkerService(bucketIo model.BucketIo, requestC model.RequestContract, t
 func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 	errorKeys := make(model.ErrorKeys, 0)
 	startTime := time.Now()
-	objectsChan := make(chan *model.ChanObject, 1000)
+	objectsChan := make(chan *model.ChanObject, 1000) // 设置对象的缓存队列
 	sourceBucket, sourcePrefix := model.ParseBucketAndPrefix(task.SourceUrl)
 	targetBucket, targetPrefix := model.ParseBucketAndPrefix(task.TargetUrl)
 	go func(*model.Record) {
@@ -60,8 +60,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record *model.Record) {
 		Limit:      0,
 	}, objectsChan)
 	log.Infof("start sync task %v", task)
-	// 设置并发数
-	threadNumChan := make(chan int8, 2)
+	threadNumChan := make(chan int8, w.ThreadNum)
 	for object := range objectsChan {
 		log.Debugf("object: %s", tea.Prettify(object))
 		if record.Status == model.TaskCancel {
