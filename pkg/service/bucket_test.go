@@ -45,20 +45,16 @@ func TestCopyObjectClientSide(t *testing.T) {
 // head object test
 func TestHeadObject(t *testing.T) {
 	// object, err := bucketIo.HeadObject(profileFrom, bucketFrom, "zhoushoujiantest/20230527_62559104-98af-4eed-a857-6c50bedcaa40/1685198194.mkv")
-	object, err := bucketIo.HeadObject(profileFrom, bucketFrom, "zhoushoujiantest/serverside/1685198194.mkv")
+	object, err := bucketIo.HeadObject(profileFrom, bucketFrom, "zhoushoujiantest/1685198194.mkv")
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println(object)
 }
 
-// test get object contentLength
-func TestGetObjectContentLength(t *testing.T) {
-	object, err := bucketIo.GetSourceContentLength("default", "cos-ops-test-tmp-1251949819", "paper_docid_relation.dump")
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(object)
+// test getSourceSplit
+func TestGetSourceSplit(t *testing.T) {
+	fmt.Println(bucketIo.GetSourceSplit("proxy", "zhoushoujiantest", "1685198194.mkv", 7))
 }
 
 // test CopyObjectClientSide 大文件

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"cbs/config"
 	"cbs/pkg/model"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -393,22 +394,50 @@ func (c *bucketClient) HeadObject(profile, bucketName, object string) (model.Obj
 	return model.Object{}, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
 }
 
-func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sourceObj model.Object, sourcePart, contentLength int64, ch chan<- *model.ChData) {
-	var partIndex int64 = 0
-	startIdx, endIdx := model.CalculateEvenSplitsByPartSize(sourceObj.Size, contentLength)
-	// Do we need more parts
-	for j, start := range startIdx {
-		partIndex++
-		Start := start
-		End := endIdx[j]
-		data, err := c.GetObjectPart(profileFrom, sourceBucket, sourceObj.Key, Start, End)
-		ch <- &model.ChData{
-			PartIndex: partIndex,
-			Data:      data,
-			Err:       err,
+// 下载分片的时候按照分片大小进行分片下载
+func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sourceObj model.Object, sourcePart int64, ch chan<- *model.ChData) {
+	defer close(ch)
+	if c.isTencent(sourceBucket) {
+		var partIndex int64 = 0
+		startIdx, endIdx := model.CalculateEvenSplits(sourceObj.Size)
+		// Do we need more parts
+		for j, start := range startIdx {
+			partIndex++
+			Start := start
+			End := endIdx[j]
+			data, err := c.GetObjectPart(profileFrom, sourceBucket, sourceObj.Key, Start, End)
+			ch <- &model.ChData{
+				PartIndex: partIndex,
+				Data:      data,
+				Err:       err,
+			}
+		}
+	} else {
+		// 依据源分片大小进行分片下载
+		startIndex, endIndex, err := c.GetSourceSplit(profileFrom, sourceBucket, sourceObj.Key, sourcePart)
+		if err != nil {
+			ch <- &model.ChData{
+				Err: err,
+			}
+			return
+		}
+		for j, start := range startIndex {
+			Start := start
+			End := endIndex[j]
+			data, err := c.GetObjectPart(profileFrom, sourceBucket, sourceObj.Key, Start, End)
+			if err != nil {
+				ch <- &model.ChData{
+					Err: err,
+				}
+				break
+			}
+			ch <- &model.ChData{
+				PartIndex: int64(j + 1),
+				Data:      data,
+				Err:       err,
+			}
 		}
 	}
-	close(ch)
 }
 
 func (c *bucketClient) MutiReadFile(sourceObj model.LocalFile, sourcePart int64, ch chan *model.ChData) {
@@ -441,20 +470,18 @@ func (c *bucketClient) CopyObjectServerSide(sourceProfile, sourceBucket string, 
 	if err != nil {
 		sourcePart = 1
 	}
-	contentLength, err := c.GetSourceContentLength(sourceProfile, sourceBucket, sourceObj.Key)
-	if err != nil {
-		return false, err
-	}
+
 	if sourcePart > 1 {
 		// 大于1个分片的文件，直接分片拷贝
 		var partIndex int64 = 0
+		startIdx, endIdx, err := c.GetSourceSplit(sourceProfile, sourceBucket, sourceObj.Key, sourcePart)
+		if err != nil {
+			return false, err
+		}
 		upload_id, err := c.CreateMutiUpload(sourceProfile, targetBucket, targetKey)
 		if err != nil {
 			return false, err
 		}
-		defer c.AbortMutiPartUpload(sourceProfile, targetBucket, targetKey, upload_id)
-
-		startIdx, endIdx := model.CalculateEvenSplitsByPartSize(sourceObj.Size, contentLength)
 		var completed_parts []*s3.CompletedPart
 		for j, start := range startIdx {
 			partIndex++
@@ -464,7 +491,6 @@ func (c *bucketClient) CopyObjectServerSide(sourceProfile, sourceBucket string, 
 			copySourceRange := fmt.Sprintf("bytes=%d-%d", Start, End)
 			part, err := c.UploadPart(sourceProfile, targetBucket, targetKey, copySource, copySourceRange, upload_id, partIndex)
 			if err != nil {
-				log.Fatal(err.Error())
 				break
 			}
 			completed_parts = append(completed_parts, part)
@@ -472,6 +498,7 @@ func (c *bucketClient) CopyObjectServerSide(sourceProfile, sourceBucket string, 
 		}
 		err = c.ComplateMutiPartUpload(sourceProfile, targetBucket, targetKey, upload_id, completed_parts)
 		if err != nil {
+			c.AbortMutiPartUpload(sourceProfile, targetBucket, targetKey, upload_id)
 			return false, err
 		} else {
 			log.Infof(`muticopy s3://%s/%s => s3://%s/%s %s`, sourceBucket, sourceObj.Key, targetBucket, targetKey, model.FormatSize(sourceObj.Size))
@@ -482,29 +509,6 @@ func (c *bucketClient) CopyObjectServerSide(sourceProfile, sourceBucket string, 
 		err := c.copyObject(sourceProfile, sourceBucket, sourceObj, targetBucket, targetKey)
 		return false, err
 	}
-}
-
-// 判断是否进行分片传输，是返回true，否返回false，并且返回需要分片的大小
-// 腾讯云不支持查询已有对象的 content length，这里要特殊处理
-func (c *bucketClient) GetSourceContentLength(profile, bucketName, object string) (int64, error) {
-	if sess, ok := c.sessions[profile]; ok {
-		if c.istencent(bucketName) {
-			return 0, nil
-		}
-		svc := s3.New(sess)
-		input := &s3.HeadObjectInput{
-			Bucket:     aws.String(bucketName),
-			Key:        aws.String(object),
-			PartNumber: aws.Int64(1),
-		}
-		resp, err := svc.HeadObject(input)
-		if err != nil {
-			return 0, err
-		}
-		log.Debugf("getSourceContentLength %s", tea.Prettify(resp))
-		return *resp.ContentLength, nil
-	}
-	return 0, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
 }
 
 // 依据文件大小决定是用PutObject，还是分片上传；这里设置文件大小为5G，超过5G的文件使用分片上传；
@@ -518,27 +522,27 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 	if err != nil {
 		sourcePart = 1
 	}
-	contentLength, err := c.GetSourceContentLength(sourceProfile, sourceBucket, sourceObj.Key)
-	if err != nil {
-		log.Debugf("getSourceContentLength err %s", err.Error())
-		return isSameEtag, err
-	}
+
 	if sourcePart > 1 {
 		var partIndex int64 = 0
 		upload_id, err := c.CreateMutiUpload(targetProfile, targetBucket, targetKey)
 		if err != nil {
 			return isSameEtag, err
 		}
+		defer c.AbortMutiPartUpload(targetProfile, targetBucket, targetKey, upload_id)
 		threadCache := 2 // 对象切片的缓存数量，约大越占内存，但可以提高单个分片对象的完成速度。
 		ch := make(chan *model.ChData, threadCache)
-		go c.MutiDownloadObject(sourceProfile, sourceBucket, sourceObj, sourcePart, contentLength, ch)
+		go c.MutiDownloadObject(sourceProfile, sourceBucket, sourceObj, sourcePart, ch)
 		var completed_parts []*s3.CompletedPart
 		for mutiData := range ch {
+			if mutiData.Err != nil {
+				return isSameEtag, mutiData.Err
+			}
 			partIndex++
 			part, err := c.UploadPartWithData(targetProfile, targetBucket, targetKey, upload_id, partIndex, mutiData.Data)
 			if err != nil {
-				log.Fatal(err.Error())
-				break
+				log.Errorf(err.Error())
+				return isSameEtag, err
 			}
 			completed_parts = append(completed_parts, part)
 			log.Infof(`UploadPart s3://%s/%s %d/%d`, targetBucket, targetKey, partIndex, sourcePart)
@@ -610,7 +614,6 @@ func (c *bucketClient) CopyObjectLocalToRemote(targetProfile string, sourceObj m
 	}
 }
 
-// 由于腾讯云目前不支持分片对象的源和目标保持一直 etag，为了保证不重复上传，需要对腾讯云的对象进行文件 size和时间校验；
 func (c *bucketClient) isSameFile(object model.Object, targetProfile, targetBucket, targetKey string) bool {
 	// 没有覆盖要去检查目标文件的etag
 	dstObject, err := c.HeadObject(targetProfile, targetBucket, targetKey)
@@ -629,7 +632,8 @@ func (c *bucketClient) isSameFile(object model.Object, targetProfile, targetBuck
 		return true
 	}
 	{
-		if c.istencent(targetBucket) {
+		// 由于腾讯云目前不支持分片对象的源和目标保持一直 etag，为了保证不重复上传，需要对腾讯云的对象进行文件 size和时间校验；
+		if c.isTencent(targetBucket) {
 			if dstObject.LastModified.Before(object.LastModified) {
 				return false
 			}
@@ -643,7 +647,35 @@ func (c *bucketClient) isSameFile(object model.Object, targetProfile, targetBuck
 	return false
 }
 
-// istencent 是否是腾讯云,依据 bucketname是否包含-1251949819 结尾
-func (c *bucketClient) istencent(bucket string) bool {
+// isTencent 是否是腾讯云,依据 bucketName是否包含-1251949819 结尾
+func (c *bucketClient) isTencent(bucket string) bool {
 	return strings.HasSuffix(bucket, "-1251949819")
+}
+
+// 获取源分片的起止
+func (c *bucketClient) GetSourceSplit(sourceProfile, sourceBucket, key string, sourcePart int64) (startIndex, endIndex []int64, err error) {
+	if sess, ok := c.sessions[sourceProfile]; ok {
+		// 依据源分片大小进行分片下载
+		svc := s3.New(sess)
+		input := &s3.HeadObjectInput{
+			Bucket: aws.String(sourceBucket),
+			Key:    aws.String(key),
+		}
+		start := int64(0)
+		for i := int64(0); i < sourcePart; i++ {
+			input.PartNumber = aws.Int64(i + 1)
+			resp, err := svc.HeadObject(input)
+			if err != nil {
+				log.Errorf("get source split error:%s", err.Error())
+				return nil, nil, err
+			}
+			log.Debugf("%s", *resp.ContentLength)
+			end := start + *resp.ContentLength - 1
+			startIndex = append(startIndex, start)
+			endIndex = append(endIndex, end)
+			start = end + 1
+		}
+		return startIndex, endIndex, nil
+	}
+	return nil, nil, errors.New(fmt.Sprintf("profile:%s not found", sourceProfile))
 }
