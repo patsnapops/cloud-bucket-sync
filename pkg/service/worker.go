@@ -10,14 +10,16 @@ import (
 )
 
 type WorkerService struct {
-	BucketIo model.BucketIo
-	RequestC model.RequestContract
+	BucketIo  model.BucketIo
+	RequestC  model.RequestContract
+	ThreadNum int64
 }
 
-func NewWorkerService(bucketIo model.BucketIo, requestC model.RequestContract) model.WorkerContract {
+func NewWorkerService(bucketIo model.BucketIo, requestC model.RequestContract, thread int64) model.WorkerContract {
 	return &WorkerService{
-		BucketIo: bucketIo,
-		RequestC: requestC,
+		BucketIo:  bucketIo,
+		RequestC:  requestC,
+		ThreadNum: thread,
 	}
 }
 
@@ -58,7 +60,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 		Limit:      0,
 	}, objectsChan)
 	log.Infof("start sync task %v", task)
-	threadNum := make(chan int, 10)
+	threadNum := make(chan int, w.ThreadNum)
 	for object := range objectsChan {
 		record.TotalFiles++
 		log.Debugf("object: %s", tea.Prettify(object))
