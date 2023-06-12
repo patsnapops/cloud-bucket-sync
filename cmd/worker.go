@@ -25,8 +25,6 @@ func init() {
 	workerCmd.AddCommand(runWorker)
 	runWorker.Flags().StringVarP(&region, "region", "", "cn", "eg: cn, us, eu, ap")
 	runWorker.Flags().StringVarP(&cloud, "cloud", "", "aws", "eg: aws, azure, aliyun, huawei, tencent, google")
-	runWorker.Flags().Int64VarP(&threadNum, "thread-num", "t", 100, "thread num,every thread will sync a object")
-
 	showWorkerCmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "output format, support table/json")
 }
 
@@ -47,7 +45,7 @@ var runWorker = &cobra.Command{
 	Long:    "\nyou know for start a worker!",
 	Run: func(cmd *cobra.Command, args []string) {
 		initApp()
-		workerC = service.NewWorkerService(bucketIo, requestC, threadNum)
+		workerC = service.NewWorkerService(bucketIo, requestC)
 		switch len(args) {
 		case 0:
 			runWorkerCmd(cmd, args)

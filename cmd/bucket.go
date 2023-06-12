@@ -57,6 +57,7 @@ func init() {
 	bucketCmd.PersistentFlags().StringVarP(&timeBefore, "time-before", "b", "", "2023-03-01 00:00:00")
 	bucketCmd.PersistentFlags().StringVarP(&timeAfter, "time-after", "a", "", "1992-03-01 00:00:00")
 	bucketCmd.PersistentFlags().Int64VarP(&queue, "queue", "q", 0, "queue")
+	bucketCmd.PersistentFlags().Int64VarP(&threadNum, "thread-num", "t", 100, "thread num,every thread will sync a object")
 
 	syncCmd.Flags().BoolVarP(&force, "force", "f", false, "force")
 	syncCmd.Flags().BoolVarP(&isServerSide, "server-side", "s", false, "default use local network.")
@@ -68,9 +69,6 @@ func init() {
 	rmCmd.Flags().StringVarP(&dir, "dir", "", "", "must be end with / support *.txt,*.csv")
 	// 支持--error-file参数，可以将错误的对象写入到文件中
 	rmCmd.Flags().StringVarP(&errorFile, "error-file", "", ".cbs_rm_error.txt", "error file path")
-
-	// 依据运行环境的内存大小，设置默认的线程数
-	threadNum = model.GetThreadNum()
 }
 
 var bucketCmd = &cobra.Command{
@@ -258,6 +256,7 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 	}
 	objectsChan := make(chan *model.ChanObject, queue)
 	go bucketIo.ListObjectsWithChan(profileFrom, srcBucketName, srcPrefix, input.Input, objectsChan)
+	threadChan := make(chan int, threadNum)
 	for object := range objectsChan {
 		log.Debugf("source object:%s", tea.Prettify(object))
 		if object.Obj == nil {
@@ -274,25 +273,28 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 			log.Infof("dry run object:%s", tea.Prettify(object))
 			continue
 		}
-		if !isServerSide {
-			log.Infof("copy object client side")
-			isSameEtag, err := bucketIo.CopyObjectClientSide(profileFrom, profileTo, srcBucketName, *object.Obj, dstBucketName, targetKey)
-			if err != nil {
-				log.Errorf("copy object error:%s", err.Error())
+		threadChan <- 1
+		go func(object *model.ChanObject, targetKey string) {
+			if !isServerSide {
+				log.Infof("copy object client side")
+				isSameEtag, err := bucketIo.CopyObjectClientSide(profileFrom, profileTo, srcBucketName, *object.Obj, dstBucketName, targetKey)
+				if err != nil {
+					log.Errorf("copy object error:%s", err.Error())
+				}
+				if isSameEtag {
+					log.Infof("same Etag ,skip copy")
+				}
+			} else {
+				log.Infof("copy object server side")
+				isSameEtag, err := bucketIo.CopyObjectServerSide(profileFrom, srcBucketName, *object.Obj, dstBucketName, targetKey)
+				if err != nil {
+					log.Errorf("copy object error:%s", err.Error())
+				}
+				if isSameEtag {
+					log.Infof("same Etag ,skip copy")
+				}
 			}
-			if isSameEtag {
-				log.Infof("same Etag ,skip copy")
-			}
-		} else {
-			log.Infof("copy object server side")
-			isSameEtag, err := bucketIo.CopyObjectServerSide(profileFrom, srcBucketName, *object.Obj, dstBucketName, targetKey)
-			if err != nil {
-				log.Errorf("copy object error:%s", err.Error())
-			}
-			if isSameEtag {
-				log.Infof("same Etag ,skip copy")
-			}
-		}
+		}(object, targetKey)
 	}
 }
 
@@ -351,6 +353,7 @@ func syncBucketToLocal(sourceUrl, targetPath string, input model.SyncInput) {
 	}
 	objectsChan := make(chan *model.ChanObject, queue)
 	go bucketIo.ListObjectsWithChan(profileFrom, bucketName, prefix, input.Input, objectsChan)
+	threadChan := make(chan int, threadNum)
 	for object := range objectsChan {
 		if object.Obj == nil {
 			continue
@@ -371,18 +374,21 @@ func syncBucketToLocal(sourceUrl, targetPath string, input model.SyncInput) {
 			}
 		}
 		log.Debugf("%s => %s", object.Obj.Key, targetPath)
-		body, err := bucketIo.GetObject(profileFrom, bucketName, object.Obj.Key)
-		if err != nil {
-			log.Debugf("%s %s%s", profileFrom, bucketName, object.Obj.Key)
-			log.Errorf("download failed:%s", err.Error())
-			continue
-		}
-		// body 写入文件
-		err = writeToFile(targetPath, &body)
-		if err != nil {
-			panic(err)
-		}
-		log.Infof("download success: %s", targetPath)
+		threadChan <- 1
+		go func(object *model.ChanObject, targetPath string) {
+			body, err := bucketIo.GetObject(profileFrom, bucketName, object.Obj.Key)
+			if err != nil {
+				log.Debugf("%s %s%s", profileFrom, bucketName, object.Obj.Key)
+				log.Errorf("download failed:%s", err.Error())
+				return
+			}
+			// body 写入文件
+			err = writeToFile(targetPath, &body)
+			if err != nil {
+				panic(err)
+			}
+			log.Infof("download success: %s", targetPath)
+		}(object, targetPath)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"runtime"
 )
 
+// 决定了每个任务同时处理的对象数量。
 func GetThreadNum() int64 {
 	mem := runtime.MemStats{}
 	runtime.ReadMemStats(&mem)

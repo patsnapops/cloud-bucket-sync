@@ -29,7 +29,7 @@ func init() {
 	log.Debugf("cliConfig: %v", cliConfig.Profiles)
 	bucketIo = io.NewBucketClient(cliConfig.Profiles)
 	requestC := service.NewRequestService(cliConfig.Manager)
-	workerC = service.NewWorkerService(bucketIo, requestC, 100)
+	workerC = service.NewWorkerService(bucketIo, requestC)
 }
 
 // test CopyObjectClientSide

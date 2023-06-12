@@ -10,16 +10,14 @@ import (
 )
 
 type WorkerService struct {
-	BucketIo  model.BucketIo
-	RequestC  model.RequestContract
-	ThreadNum int64
+	BucketIo model.BucketIo
+	RequestC model.RequestContract
 }
 
-func NewWorkerService(bucketIo model.BucketIo, requestC model.RequestContract, threadNum int64) model.WorkerContract {
+func NewWorkerService(bucketIo model.BucketIo, requestC model.RequestContract) model.WorkerContract {
 	return &WorkerService{
-		BucketIo:  bucketIo,
-		RequestC:  requestC,
-		ThreadNum: threadNum,
+		BucketIo: bucketIo,
+		RequestC: requestC,
 	}
 }
 
@@ -60,65 +58,51 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 		Limit:      0,
 	}, objectsChan)
 	log.Infof("start sync task %v", task)
-	threadNumChan := make(chan int8, w.ThreadNum)
 	for object := range objectsChan {
+		record.TotalFiles++
 		log.Debugf("object: %s", tea.Prettify(object))
 		if record.Status == model.TaskCancel {
 			log.Infof("got cancel signal,stop sync record %v", record)
 			break
 		}
-		threadNumChan <- 1
-		go func(object *model.ChanObject) {
-			defer func() {
-				record.TotalFiles++
-				<-threadNumChan
-			}()
-			targetKey := model.GetTargetKey(object.Obj.Key, sourcePrefix, targetPrefix)
-			if *task.IsServerSide {
-				isSameEtag, err := w.BucketIo.CopyObjectServerSide(task.SourceProfile, sourceBucket, *object.Obj, targetBucket, targetKey)
-				if err != nil {
-					log.Errorf("copy object %s/%s error: %v", targetBucket, object.Obj.Key, err)
-					errorKeys = append(errorKeys, model.ErrorKey{
-						Func: "CopyObjectServerSide",
-						Key:  object.Obj.Key,
-						Err:  err,
-					})
-					record.FailedFiles++
-					return
-				}
-				if !isSameEtag {
-					record.TotalSize += object.Obj.Size
-					log.Infof("%s - copy object %s/%s success", record.Id, targetBucket, object.Obj.Key)
-				} else {
-					log.Debugf("%s - copy object %s/%s success. same Etag skip.", record.Id, targetBucket, object.Obj.Key)
-				}
-			} else {
-				isSameEtag, err := w.BucketIo.CopyObjectClientSide(task.SourceProfile, task.TargetProfile, sourceBucket, *object.Obj, targetBucket, targetKey)
-				if err != nil {
-					errorKeys = append(errorKeys, model.ErrorKey{
-						Func: "CopyObjectClientSide",
-						Key:  object.Obj.Key,
-						Err:  err,
-					})
-					record.FailedFiles++
-					log.Errorf("copy object %s/%s error: %v", targetBucket, object.Obj.Key, err)
-					return
-				}
-				if !isSameEtag {
-					record.TotalSize += object.Obj.Size
-					log.Infof("%s upload object %s/%s success", record.Id, targetBucket, object.Obj.Key)
-				} else {
-					log.Debugf("%s upload object %s/%s success. same Etag skip.", record.Id, targetBucket, object.Obj.Key)
-				}
+		targetKey := model.GetTargetKey(object.Obj.Key, sourcePrefix, targetPrefix)
+		if *task.IsServerSide {
+			isSameEtag, err := w.BucketIo.CopyObjectServerSide(task.SourceProfile, sourceBucket, *object.Obj, targetBucket, targetKey)
+			if err != nil {
+				log.Errorf("copy object %s/%s error: %v", targetBucket, object.Obj.Key, err)
+				errorKeys = append(errorKeys, model.ErrorKey{
+					Func: "CopyObjectServerSide",
+					Key:  object.Obj.Key,
+					Err:  err,
+				})
+				record.FailedFiles++
+				return
 			}
-		}(object)
-	}
-	for {
-		if len(threadNumChan) == 0 {
-			// all done
-			break
+			if !isSameEtag {
+				record.TotalSize += object.Obj.Size
+				log.Infof("%s - copy object %s/%s success", record.Id, targetBucket, object.Obj.Key)
+			} else {
+				log.Debugf("%s - copy object %s/%s success. same Etag skip.", record.Id, targetBucket, object.Obj.Key)
+			}
+		} else {
+			isSameEtag, err := w.BucketIo.CopyObjectClientSide(task.SourceProfile, task.TargetProfile, sourceBucket, *object.Obj, targetBucket, targetKey)
+			if err != nil {
+				errorKeys = append(errorKeys, model.ErrorKey{
+					Func: "CopyObjectClientSide",
+					Key:  object.Obj.Key,
+					Err:  err,
+				})
+				record.FailedFiles++
+				log.Errorf("copy object %s/%s error: %v", sourceBucket, object.Obj.Key, err)
+				return
+			}
+			if !isSameEtag {
+				record.TotalSize += object.Obj.Size
+				log.Infof("%s upload object %s/%s success", record.Id, targetBucket, object.Obj.Key)
+			} else {
+				log.Debugf("%s upload object %s/%s success. same Etag skip.", record.Id, targetBucket, object.Obj.Key)
+			}
 		}
-		time.Sleep(1 * time.Second)
 	}
 
 	// 汇总结果

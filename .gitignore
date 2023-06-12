@@ -7,8 +7,4 @@ config/worker.yaml
 docs/cbs-bucket.md
 .cbs_rm_error.txt
 *.log
-tests/ftp/2.tar.gz
-tests/ftp/3.tar.gz
-tests/ftp/4.tar.gz
-tests/ftp/file1.test.1.tar.gz
-tests/ftp/file1.test.tar.gz
+tests/
