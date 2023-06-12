@@ -14,6 +14,7 @@ import (
 var (
 	bucketIo model.BucketIo
 	workerC  model.WorkerContract
+	requestC model.RequestContract
 )
 
 var (
@@ -28,8 +29,14 @@ func init() {
 	log.Default().WithLevel(log.DebugLevel).Init()
 	log.Debugf("cliConfig: %v", cliConfig.Profiles)
 	bucketIo = io.NewBucketClient(cliConfig.Profiles)
-	requestC := service.NewRequestService(cliConfig.Manager)
+	requestC = service.NewRequestService(cliConfig.Manager)
 	workerC = service.NewWorkerService(bucketIo, requestC, 1)
+}
+
+// request test
+func TestRequest(t *testing.T) {
+	recordId := "95318929-7899-47a5-a943-404854177b06"
+	fmt.Println(requestC.RecordUpdateStatus(recordId, model.TaskSuccess))
 }
 
 // test CopyObjectClientSide

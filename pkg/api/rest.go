@@ -9,14 +9,16 @@ import (
 )
 
 var (
-	managerIo     model.ManagerIo
-	managerConfig config.ManagerConfig
+	managerIo       model.ManagerIo
+	managerContract model.ManagerContract
+	managerConfig   config.ManagerConfig
 )
 
-func ApplyRoutes(routerGroup *gin.RouterGroup, managerio model.ManagerIo, managerconfig config.ManagerConfig) {
+func ApplyRoutes(routerGroup *gin.RouterGroup, managerio model.ManagerIo, managerconfig config.ManagerConfig, mc model.ManagerContract) {
 	// 注册managerio
 	managerIo = managerio
 	managerConfig = managerconfig
+	managerContract = mc
 	if managerIo == nil {
 		log.Panic("managerIo is nil")
 	}

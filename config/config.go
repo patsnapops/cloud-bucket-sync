@@ -12,7 +12,7 @@ import (
 
 type ManagerConfig struct {
 	PG       PostgresConfig `mapstructure:"pg"`
-	Profiles []Profile      `mapstructure:"profiles"`
+	Dingtalk DingtalkConfig `mapstructure:"dingtalk"`
 }
 
 type PostgresConfig struct {
@@ -21,6 +21,14 @@ type PostgresConfig struct {
 	User     string `mapstructure:"user"`
 	Password string `mapstructure:"password"`
 	Database string `mapstructure:"database"`
+}
+
+type DingtalkConfig struct {
+	RobotToken string `mapstructure:"robot_token"`
+	AppKey     string `mapstructure:"app_key"`
+	AppSecret  string `mapstructure:"app_secret"`
+	CorpId     string `mapstructure:"corp_id"`
+	AgentId    string `mapstructure:"agent_id"`
 }
 
 func (c *PostgresConfig) GetUrl() string {

@@ -154,7 +154,7 @@ func ChangeRecordStatus(c *gin.Context) {
 		return
 	}
 	log.Infof("change record status, recordID: %s, status: %s by %s", req.RecordID, req.Status, req.Operator)
-	err := managerIo.UpdateRecordStatus(req.RecordID, model.Status(req.Status))
+	err := managerContract.UpdateRecordStatus(req.RecordID, model.Status(req.Status))
 	if err != nil {
 		log.Errorf("execute task error: %v", err)
 		c.JSON(500, err.Error())

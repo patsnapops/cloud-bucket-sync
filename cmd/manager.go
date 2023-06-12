@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/patsnapops/ginx/middleware"
+	dt "github.com/patsnapops/go-dingtalk-sdk-wrapper"
 	hh "github.com/patsnapops/http-headers"
 	"github.com/patsnapops/noop/log"
 	"github.com/robfig/cron"
@@ -24,6 +25,11 @@ import (
 var (
 	port            string
 	disableSchedule bool
+)
+
+var (
+	managerIo model.ManagerIo
+	managerC  model.ManagerContract
 )
 
 func init() {
@@ -46,14 +52,30 @@ var startCmd = &cobra.Command{
 	Long: "start manager server, default port is 8012",
 	Run: func(cmd *cobra.Command, args []string) {
 		initApp()
-		managerIo := io.NewManagerClient(initDB(*managerConfig))
-		managerC := service.NewManagerService(managerIo)
+		managerIo = io.NewManagerClient(initDB(*managerConfig))
+		dtc := io.NewDingtalkClient(initDt(), managerConfig.Dingtalk)
+		managerC = service.NewManagerService(managerIo, dtc)
 		go startSchedule(managerC)
-		startGin(managerIo)
+		startGin()
 	},
 }
 
-func startGin(managerIo model.ManagerIo) {
+func initDt() *dt.DingTalkClient {
+	config := dt.DingTalkConfig{
+		AppKey:    managerConfig.Dingtalk.AppKey,
+		AppSecret: managerConfig.Dingtalk.AppSecret,
+		CorpId:    managerConfig.Dingtalk.CorpId,
+		AgentId:   managerConfig.Dingtalk.AgentId,
+	}
+	client, err := dt.NewDingTalkClient(&config)
+	if err != nil {
+		panic(err)
+	}
+	client.WithRobotClient()
+	return client
+}
+
+func startGin() {
 	if !debug {
 		gin.SetMode(gin.ReleaseMode)
 	} else {
@@ -73,7 +95,7 @@ func startGin(managerIo model.ManagerIo) {
 	}, ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	r := ginEngine.Group("/api/v1")
-	api.ApplyRoutes(r, managerIo, *managerConfig)
+	api.ApplyRoutes(r, managerIo, *managerConfig, managerC)
 	log.Infof("manager server start at 0.0.0.0:%s success", port)
 	err := ginEngine.Run(":" + port)
 	if err != nil {

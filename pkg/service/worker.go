@@ -112,6 +112,14 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 		}(object, targetKey)
 	}
 
+	// 等待所有线程结束
+	for {
+		if len(threadNum) == 0 {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
 	// 汇总结果
 	if len(errorKeys) > 0 {
 		// not all success

@@ -16,7 +16,9 @@ type managerClient struct {
 }
 
 func NewManagerClient(db *gorm.DB) model.ManagerIo {
-	return &managerClient{db: db}
+	return &managerClient{
+		db: db,
+	}
 }
 
 func (c *managerClient) ListRecords() ([]*model.Record, error) {

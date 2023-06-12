@@ -1,12 +1,18 @@
 ## Config 配置
-### cli 配置
+### Manager 配置
 ```yaml
-profiles:
-  - name: default
-    ak: YOUR_AK
-    sk: YOUR_SK
-    region: cn-northwest-1
-    endpoint: http://your_proxy_host:your_port
+pg:
+  host: xxx
+  port: 30075
+  user: xxx
+  password: xxx
+  database: xxx
+dingtalk:
+  robot_token: xxx
+  app_key: xxx
+  app_secret: xxx-xxx
+  agent_id:
+  corp_id: 
 ```
 ## 主要功能
 - 提供API接口

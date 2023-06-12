@@ -2,6 +2,7 @@ package service
 
 import (
 	"cbs/pkg/model"
+	"fmt"
 	"time"
 
 	"github.com/patsnapops/noop/log"
@@ -10,10 +11,14 @@ import (
 
 type ManagerService struct {
 	Client model.ManagerIo
+	Dt     model.DingtalkIo
 }
 
-func NewManagerService(client model.ManagerIo) model.ManagerContract {
-	return &ManagerService{Client: client}
+func NewManagerService(client model.ManagerIo, dtc model.DingtalkIo) model.ManagerContract {
+	return &ManagerService{
+		Client: client,
+		Dt:     dtc,
+	}
 }
 
 func (s *ManagerService) CheckWorker() {
@@ -103,6 +108,29 @@ func (s *ManagerService) CheckTaskCorn() {
 			log.Errorf("execute task %s error: %v", task.Id, err)
 		}
 	}
+}
+
+// UpdateTaskStatus
+func (s *ManagerService) UpdateRecordStatus(recordID string, status model.Status) error {
+	err := s.Client.UpdateRecordStatus(recordID, status)
+	if err == nil {
+		// 发起通知
+		log.Debugf("update record %s status to %s failed, err: %v", recordID, status, err)
+		if status == model.TaskSuccess || status == model.TaskFailed || status == model.TaskNotAllSuccess {
+			record, _ := s.Client.GetRecord(recordID)
+			taskInfo, _ := s.Client.GetTaskById(record.TaskId)
+			// 发送钉钉消息
+			msg := fmt.Sprintf("任务执行结束：%s\n\n任务ID：%s\n名称：%s\n提交者：%s\n耗时：%d 秒\n源：%s\n目标：%s\n消耗流量：%s\n文件数量：%d\n",
+				record.Status, taskInfo.Id, taskInfo.Name, taskInfo.Submitter, record.CostTime, taskInfo.SourceUrl, taskInfo.TargetUrl,
+				model.FormatSize(record.TotalSize), record.TotalFiles)
+			log.Debugf("send dingtalk message: %s", msg)
+			err := s.Dt.RobotSendText(msg)
+			if err != nil {
+				log.Errorf("send dingtalk message error: %v", err)
+			}
+		}
+	}
+	return err
 }
 
 // needExecute
