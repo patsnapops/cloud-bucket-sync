@@ -38,7 +38,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 				log.Errorf("record update error: %v", err)
 			}
 			if record.Status != model.TaskRunning {
-				log.Infof("stop update record %v", record)
+				log.Debugf("stop update record %v", record)
 				return
 			}
 			if w.CheckRecordStatus(record.Id) {
@@ -58,6 +58,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 		Limit:      0,
 	}, objectsChan)
 	log.Infof("start sync task %v", task)
+	threadNum := make(chan int, 10)
 	for object := range objectsChan {
 		record.TotalFiles++
 		log.Debugf("object: %s", tea.Prettify(object))
@@ -66,43 +67,47 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 			break
 		}
 		targetKey := model.GetTargetKey(object.Obj.Key, sourcePrefix, targetPrefix)
-		if *task.IsServerSide {
-			isSameEtag, err := w.BucketIo.CopyObjectServerSide(task.SourceProfile, sourceBucket, *object.Obj, targetBucket, targetKey)
-			if err != nil {
-				log.Errorf("copy object %s/%s error: %v", targetBucket, object.Obj.Key, err)
-				errorKeys = append(errorKeys, model.ErrorKey{
-					Func: "CopyObjectServerSide",
-					Key:  object.Obj.Key,
-					Err:  err,
-				})
-				record.FailedFiles++
-				return
-			}
-			if !isSameEtag {
-				record.TotalSize += object.Obj.Size
-				log.Infof("%s - copy object %s/%s success", record.Id, targetBucket, object.Obj.Key)
+		threadNum <- 1
+		go func(object *model.ChanObject, targetKey string) {
+			if *task.IsServerSide {
+				isSameEtag, err := w.BucketIo.CopyObjectServerSide(task.SourceProfile, sourceBucket, *object.Obj, targetBucket, targetKey)
+				if err != nil {
+					log.Errorf("copy object %s/%s error: %v", targetBucket, object.Obj.Key, err)
+					errorKeys = append(errorKeys, model.ErrorKey{
+						Func: "CopyObjectServerSide",
+						Key:  object.Obj.Key,
+						Err:  err,
+					})
+					record.FailedFiles++
+					return
+				}
+				if !isSameEtag {
+					record.TotalSize += object.Obj.Size
+					log.Infof("%s - copy object %s/%s success", record.Id, targetBucket, object.Obj.Key)
+				} else {
+					log.Debugf("%s - copy object %s/%s success. same Etag skip.", record.Id, targetBucket, object.Obj.Key)
+				}
 			} else {
-				log.Debugf("%s - copy object %s/%s success. same Etag skip.", record.Id, targetBucket, object.Obj.Key)
+				isSameEtag, err := w.BucketIo.CopyObjectClientSide(task.SourceProfile, task.TargetProfile, sourceBucket, *object.Obj, targetBucket, targetKey)
+				if err != nil {
+					errorKeys = append(errorKeys, model.ErrorKey{
+						Func: "CopyObjectClientSide",
+						Key:  object.Obj.Key,
+						Err:  err,
+					})
+					record.FailedFiles++
+					log.Errorf("copy object %s/%s error: %v", sourceBucket, object.Obj.Key, err)
+					return
+				}
+				if !isSameEtag {
+					record.TotalSize += object.Obj.Size
+					log.Infof("%s upload object %s/%s success", record.Id, targetBucket, object.Obj.Key)
+				} else {
+					log.Debugf("%s upload object %s/%s success. same Etag skip.", record.Id, targetBucket, object.Obj.Key)
+				}
 			}
-		} else {
-			isSameEtag, err := w.BucketIo.CopyObjectClientSide(task.SourceProfile, task.TargetProfile, sourceBucket, *object.Obj, targetBucket, targetKey)
-			if err != nil {
-				errorKeys = append(errorKeys, model.ErrorKey{
-					Func: "CopyObjectClientSide",
-					Key:  object.Obj.Key,
-					Err:  err,
-				})
-				record.FailedFiles++
-				log.Errorf("copy object %s/%s error: %v", sourceBucket, object.Obj.Key, err)
-				return
-			}
-			if !isSameEtag {
-				record.TotalSize += object.Obj.Size
-				log.Infof("%s upload object %s/%s success", record.Id, targetBucket, object.Obj.Key)
-			} else {
-				log.Debugf("%s upload object %s/%s success. same Etag skip.", record.Id, targetBucket, object.Obj.Key)
-			}
-		}
+			<-threadNum
+		}(object, targetKey)
 	}
 
 	// 汇总结果
