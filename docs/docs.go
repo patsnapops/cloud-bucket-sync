@@ -256,7 +256,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "task name",
+                        "description": "task name 支持模糊匹配",
                         "name": "name",
                         "in": "query"
                     },

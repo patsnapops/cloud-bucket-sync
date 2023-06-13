@@ -102,9 +102,11 @@ func (c *managerClient) QueryTask(input model.TaskInput) ([]*model.Task, error) 
 	// log.Debugf(tea.Prettify(input))
 	sql := c.db.Model(&tasks).Where(&model.Task{
 		Id:        input.ID,
-		Name:      input.Name,
 		WorkerTag: input.WorkerTag,
 	}).Where("is_deleted = ?", false).Order("created_at")
+	if input.Name != "" {
+		sql.Where("name like ?", input.Name)
+	}
 	resL := sql.Find(&tasks)
 	return tasks, resL.Error
 }

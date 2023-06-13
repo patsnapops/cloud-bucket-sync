@@ -336,7 +336,7 @@ paths:
         in: query
         name: id
         type: string
-      - description: task name
+      - description: task name 支持模糊匹配
         in: query
         name: name
         type: string

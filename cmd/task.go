@@ -80,29 +80,15 @@ var showCmd = &cobra.Command{
 			}
 		case 1:
 			// show taskID
-			taskID := args[0]
+			taskName := args[0]
 			tasks, err := requestC.TaskQuery(model.TaskInput{
-				ID: taskID,
+				Name: taskName,
 			})
 			if err != nil {
 				panic(err)
 			}
-			// only show last 5 records
-			records, err := requestC.RecordQuery(model.RecordInput{
-				TaskID: taskID,
-			})
-			if err != nil {
-				records = []model.Record{}
-			}
-			if len(records) > 5 {
-				fmt.Println("only show last 5 record by create_at...")
-				records = records[len(records)-5:]
-			}
 			for _, task := range tasks {
-				fmt.Println(tea.Prettify(model.TaskWithRecords{
-					Task:    *task,
-					Records: records,
-				}))
+				fmt.Println(tea.Prettify(task))
 			}
 		default:
 			cmd.Help()
@@ -133,8 +119,9 @@ func showTask(cmd *cobra.Command, args []string) {
 	// table show
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetBorder(false)
-	table.SetHeader([]string{"ID", "Name", "WorkerTag", "SyncMode", "Submitter", "Records"})
+	table.SetHeader([]string{"ID", "Name", "Size", "WorkerTag", "SyncMode", "Submitter", "Records"})
 	for _, t := range tasks {
+		var size int64
 		taskName := t.Name
 		// 处理换行
 		// taskName = strings.Replace(taskName, " ", "-", -1)
@@ -164,11 +151,12 @@ func showTask(cmd *cobra.Command, args []string) {
 			case "pending":
 				pending++
 			}
+			size += record.TotalSize
 		}
 		recordStatus = fmt.Sprintf("pending:%d,running:%d,success:%d,failed:%d,cancel:%d", pending, running, success, failed, cancel)
-		table.Append([]string{t.Id, strings.ReplaceAll(taskName, " ", "/"), string(t.WorkerTag), string(t.SyncMode), t.Submitter, recordStatus})
+		table.Append([]string{t.Id, strings.ReplaceAll(taskName, " ", "/"), model.FormatSize(size), string(t.WorkerTag), string(t.SyncMode), t.Submitter, recordStatus})
 	}
-	table.SetFooter([]string{"", "", "", "", "count", tea.ToString(len(tasks))})
+	table.SetFooter([]string{"", "", "", "", "", "count", tea.ToString(len(tasks))})
 	table.Render()
 }
 

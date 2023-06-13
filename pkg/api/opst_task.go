@@ -14,7 +14,7 @@ import (
 // @Accept  json
 // @Produce  json
 // @Param id query string false "task id"
-// @Param name query string false "task name"
+// @Param name query string false "task name 支持模糊匹配"
 // @Param worker_tag query string false "worker_tag"
 // @Success 200 {object} []model.Task
 // @Failure 500 {object} string
