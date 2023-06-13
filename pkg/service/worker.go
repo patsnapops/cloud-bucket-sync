@@ -30,7 +30,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 	objectsChan := make(chan *model.ChanObject, 1000) // 设置对象的缓存队列
 	sourceBucket, sourcePrefix := model.ParseBucketAndPrefix(task.SourceUrl)
 	targetBucket, targetPrefix := model.ParseBucketAndPrefix(task.TargetUrl)
-	go func(model.Record) {
+	go func(*model.Record) {
 		for {
 			// update record.
 			record.CostTime = int64(time.Now().Sub(startTime).Seconds())
@@ -41,16 +41,17 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 			}
 			if record.Status != model.TaskRunning {
 				log.Debugf("stop update record %v", record)
-				return
+				break
 			}
 			if w.CheckRecordStatus(record.Id) {
 				log.Infof("got cancel signal,stop sync record %v", record)
+				record.Info = "got cancel signal,stop sync"
 				record.Status = model.TaskCancel
-				return
+				break
 			}
 			time.Sleep(1 * time.Second)
 		}
-	}(record)
+	}(&record)
 	go w.BucketIo.ListObjectsWithChan(task.SourceProfile, sourceBucket, sourcePrefix, model.Input{
 		Recursive:  true,
 		Include:    strings.Split(task.Include, ","),

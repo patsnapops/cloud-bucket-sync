@@ -35,7 +35,7 @@ func init() {
 
 // request test
 func TestRequest(t *testing.T) {
-	recordId := "95318929-7899-47a5-a943-404854177b06"
+	recordId := "cc5e3618-6e6d-4fc5-a0be-84228a2ee52f"
 	fmt.Println(requestC.RecordUpdateStatus(recordId, model.TaskSuccess))
 }
 

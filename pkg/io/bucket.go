@@ -444,8 +444,11 @@ func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sour
 }
 
 func (c *bucketClient) MutiDownloadObjectThread(profileFrom, sourceBucket string, sourceObj model.Object, sourcePart int64, ch chan<- *model.ChData) {
-	defer close(ch)
-	threadChan := make(chan int, len(ch))
+	defer func() {
+		log.Debugf("close ch")
+		close(ch)
+	}()
+	threadChan := make(chan int, 20)
 	var partIndex int64 = 0
 	if c.isTencent(sourceBucket) {
 		startIdx, endIdx := model.CalculateEvenSplits(sourceObj.Size)
@@ -480,7 +483,7 @@ func (c *bucketClient) MutiDownloadObjectThread(profileFrom, sourceBucket string
 			End := endIndex[j]
 			threadChan <- 1
 			go func(partIndex, Start, End int64) {
-				// log.Debugf("partIndex:%d,start:%d,end:%d", partIndex, Start, End)
+				log.Debugf("partIndex:%d,start:%d,end:%d", partIndex, Start, End)
 				data, err := c.GetObjectPart(profileFrom, sourceBucket, sourceObj.Key, Start, End)
 				if err != nil {
 					ch <- &model.ChData{
@@ -619,7 +622,7 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 					log.Errorf(err.Error())
 					*ok = false
 				} else {
-					log.Infof(`UploadPart s3://%s/%s %d/%d/%d`, targetBucket, targetKey, mutiDataI.PartIndex, len(completed_map_parts), sourcePart)
+					log.Infof(`UploadPart s3://%s/%s %d/%d/%d`, targetBucket, targetKey, mutiDataI.PartIndex, len(completed_map_parts)+1, sourcePart)
 					completed_map_parts[mutiDataI.PartIndex] = part
 				}
 			}(&isOk, *mutiData)
