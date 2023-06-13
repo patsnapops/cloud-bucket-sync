@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
+	"time"
 
 	"github.com/alibabacloud-go/tea/tea"
 	"github.com/aws/aws-sdk-go/aws"
@@ -397,8 +398,8 @@ func (c *bucketClient) HeadObject(profile, bucketName, object string) (model.Obj
 // 下载分片的时候按照分片大小进行分片下载
 func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sourceObj model.Object, sourcePart int64, ch chan<- *model.ChData) {
 	defer close(ch)
+	var partIndex int64 = 0
 	if c.isTencent(sourceBucket) {
-		var partIndex int64 = 0
 		startIdx, endIdx := model.CalculateEvenSplits(sourceObj.Size)
 		// Do we need more parts
 		for j, start := range startIdx {
@@ -422,8 +423,10 @@ func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sour
 			return
 		}
 		for j, start := range startIndex {
+			partIndex++
 			Start := start
 			End := endIndex[j]
+			log.Infof("partIndex:%d,start:%d,end:%d", partIndex, Start, End)
 			data, err := c.GetObjectPart(profileFrom, sourceBucket, sourceObj.Key, Start, End)
 			if err != nil {
 				ch <- &model.ChData{
@@ -432,11 +435,73 @@ func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sour
 				break
 			}
 			ch <- &model.ChData{
-				PartIndex: int64(j + 1),
+				PartIndex: partIndex,
 				Data:      data,
 				Err:       err,
 			}
 		}
+	}
+}
+
+func (c *bucketClient) MutiDownloadObjectThread(profileFrom, sourceBucket string, sourceObj model.Object, sourcePart int64, ch chan<- *model.ChData) {
+	defer close(ch)
+	threadChan := make(chan int, len(ch))
+	var partIndex int64 = 0
+	if c.isTencent(sourceBucket) {
+		startIdx, endIdx := model.CalculateEvenSplits(sourceObj.Size)
+		// Do we need more parts
+		for j, start := range startIdx {
+			partIndex++
+			Start := start
+			End := endIdx[j]
+			threadChan <- 1
+			go func(partIndex int64, Start, End int64) {
+				data, err := c.GetObjectPart(profileFrom, sourceBucket, sourceObj.Key, Start, End)
+				ch <- &model.ChData{
+					PartIndex: partIndex,
+					Data:      data,
+					Err:       err,
+				}
+				<-threadChan
+			}(partIndex, Start, End)
+		}
+	} else {
+		// 依据源分片大小进行分片下载
+		startIndex, endIndex, err := c.GetSourceSplit(profileFrom, sourceBucket, sourceObj.Key, sourcePart)
+		if err != nil {
+			ch <- &model.ChData{
+				Err: err,
+			}
+			return
+		}
+		for j, start := range startIndex {
+			partIndex++
+			Start := start
+			End := endIndex[j]
+			threadChan <- 1
+			go func(partIndex, Start, End int64) {
+				// log.Debugf("partIndex:%d,start:%d,end:%d", partIndex, Start, End)
+				data, err := c.GetObjectPart(profileFrom, sourceBucket, sourceObj.Key, Start, End)
+				if err != nil {
+					ch <- &model.ChData{
+						Err: err,
+					}
+				}
+				ch <- &model.ChData{
+					PartIndex: partIndex,
+					Data:      data,
+					Err:       err,
+				}
+				<-threadChan
+			}(partIndex, Start, End)
+		}
+	}
+	for {
+		// log.Debugf("threadChan:%d", len(threadChan))
+		if len(threadChan) == 0 {
+			break
+		}
+		time.Sleep(1 * time.Second)
 	}
 }
 
@@ -524,31 +589,58 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 	}
 
 	if sourcePart > 1 {
-		var partIndex int64 = 0
 		upload_id, err := c.CreateMutiUpload(targetProfile, targetBucket, targetKey)
 		if err != nil {
 			return isSameEtag, err
 		}
+		log.Debugf("upload_id: %s", upload_id)
 		defer c.AbortMutiPartUpload(targetProfile, targetBucket, targetKey, upload_id)
-		threadCache := 2 // 对象切片的缓存数量，约大越占内存，但可以提高单个分片对象的完成速度。
+		threadCache := 10 // 对象切片的缓存数量，约大越占内存，但可以提高单个分片对象的完成速度。
+		if sourcePart >= 1000 {
+			threadCache = 20
+		}
 		ch := make(chan *model.ChData, threadCache)
-		go c.MutiDownloadObject(sourceProfile, sourceBucket, sourceObj, sourcePart, ch)
+		threadNum := make(chan int, threadCache)
+		go c.MutiDownloadObjectThread(sourceProfile, sourceBucket, sourceObj, sourcePart, ch)
 		var completed_parts []*s3.CompletedPart
+		var completed_map_parts map[int64]*s3.CompletedPart = make(map[int64]*s3.CompletedPart)
 		for mutiData := range ch {
+			var isOk bool = true
 			if mutiData.Err != nil {
 				return isSameEtag, mutiData.Err
 			}
-			partIndex++
-			part, err := c.UploadPartWithData(targetProfile, targetBucket, targetKey, upload_id, partIndex, mutiData.Data)
-			if err != nil {
-				log.Errorf(err.Error())
-				return isSameEtag, err
+			threadNum <- 1
+			go func(ok *bool, mutiDataI model.ChData) {
+				defer func() {
+					<-threadNum
+				}()
+				part, err := c.UploadPartWithData(targetProfile, targetBucket, targetKey, upload_id, mutiDataI.PartIndex, mutiDataI.Data)
+				if err != nil {
+					log.Errorf(err.Error())
+					*ok = false
+				} else {
+					log.Infof(`UploadPart s3://%s/%s %d/%d/%d`, targetBucket, targetKey, mutiDataI.PartIndex, len(completed_map_parts), sourcePart)
+					completed_map_parts[mutiDataI.PartIndex] = part
+				}
+			}(&isOk, *mutiData)
+			if !isOk {
+				break
 			}
-			completed_parts = append(completed_parts, part)
-			log.Infof(`UploadPart s3://%s/%s %d/%d`, targetBucket, targetKey, partIndex, sourcePart)
 		}
+		for {
+			if len(threadNum) == 0 {
+				break
+			}
+			time.Sleep(time.Second * 1)
+		}
+		// completed_map_parts 排序生成 completed_parts
+		for i := int64(1); i <= sourcePart; i++ {
+			completed_parts = append(completed_parts, completed_map_parts[i])
+		}
+
 		err = c.ComplateMutiPartUpload(targetProfile, targetBucket, targetKey, upload_id, completed_parts)
 		if err != nil {
+			log.Errorf("ComplateMutiPartUpload error: %s", err.Error())
 			return isSameEtag, err
 		} else {
 			log.Infof(`muticopy s3://%s/%s => s3://%s/%s %s`, sourceBucket, sourceObj.Key, targetBucket, targetKey, model.FormatSize(sourceObj.Size))
@@ -669,7 +761,7 @@ func (c *bucketClient) GetSourceSplit(sourceProfile, sourceBucket, key string, s
 				log.Errorf("get source split error:%s", err.Error())
 				return nil, nil, err
 			}
-			log.Debugf("%s", *resp.ContentLength)
+			// log.Debugf("%d", *resp.ContentLength)
 			end := start + *resp.ContentLength - 1
 			startIndex = append(startIndex, start)
 			endIndex = append(endIndex, end)

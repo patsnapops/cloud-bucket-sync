@@ -258,6 +258,7 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 	go bucketIo.ListObjectsWithChan(profileFrom, srcBucketName, srcPrefix, input.Input, objectsChan)
 	threadChan := make(chan int, threadNum)
 	for object := range objectsChan {
+		log.Debugf("%d", len(threadChan))
 		log.Debugf("source object:%s", tea.Prettify(object))
 		if object.Obj == nil {
 			continue
@@ -294,7 +295,14 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 					log.Infof("same Etag ,skip copy")
 				}
 			}
+			<-threadChan
 		}(object, targetKey)
+	}
+	for {
+		if len(threadChan) == 0 {
+			break
+		}
+		time.Sleep(1 * time.Second)
 	}
 }
 
@@ -388,7 +396,14 @@ func syncBucketToLocal(sourceUrl, targetPath string, input model.SyncInput) {
 				panic(err)
 			}
 			log.Infof("download success: %s", targetPath)
+			<-threadChan
 		}(object, targetPath)
+		for {
+			if len(threadChan) == 0 {
+				break
+			}
+			time.Sleep(1 * time.Second)
+		}
 	}
 }
 

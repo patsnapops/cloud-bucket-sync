@@ -71,6 +71,9 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 		targetKey := model.GetTargetKey(object.Obj.Key, sourcePrefix, targetPrefix)
 		threadNum <- 1
 		go func(object *model.ChanObject, targetKey string) {
+			defer func() {
+				<-threadNum
+			}()
 			if *task.IsServerSide {
 				isSameEtag, err := w.BucketIo.CopyObjectServerSide(task.SourceProfile, sourceBucket, *object.Obj, targetBucket, targetKey)
 				if err != nil {
@@ -108,7 +111,6 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 					log.Debugf("%s upload object %s/%s success. same Etag skip.", record.Id, targetBucket, object.Obj.Key)
 				}
 			}
-			<-threadNum
 		}(object, targetKey)
 	}
 

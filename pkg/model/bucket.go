@@ -81,6 +81,7 @@ type BucketIo interface {
 	UploadPart(profile, bucketName, object, copySource, copySourceRange, uploadId string, partNumber int64) (*s3.CompletedPart, error)
 	UploadPartWithData(profile, bucketName, object, uploadId string, partNumber int64, data []byte) (*s3.CompletedPart, error)
 	MutiDownloadObject(profileFrom, sourceBucket string, sourceObj Object, sourcePart int64, ch chan<- *ChData)
+	MutiDownloadObjectThread(profileFrom, sourceBucket string, sourceObj Object, sourcePart int64, ch chan<- *ChData)
 
 	MutiReadFile(sourceObj LocalFile, sourcePart int64, ch chan *ChData)
 	ComplateMutiPartUpload(profile, bucketName, object, uploadId string, completed_parts []*s3.CompletedPart) error
