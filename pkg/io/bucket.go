@@ -448,7 +448,7 @@ func (c *bucketClient) MutiDownloadObjectThread(profileFrom, sourceBucket string
 		log.Debugf("close ch")
 		close(ch)
 	}()
-	threadChan := make(chan int, 20)
+	threadChan := make(chan int, 8)
 	var partIndex int64 = 0
 	if c.isTencent(sourceBucket) {
 		startIdx, endIdx := model.CalculateEvenSplits(sourceObj.Size)
@@ -599,9 +599,6 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 		log.Debugf("upload_id: %s", upload_id)
 		defer c.AbortMutiPartUpload(targetProfile, targetBucket, targetKey, upload_id)
 		threadCache := 10 // 对象切片的缓存数量，约大越占内存，但可以提高单个分片对象的完成速度。
-		if sourcePart >= 1000 {
-			threadCache = 20
-		}
 		ch := make(chan *model.ChData, threadCache)
 		threadNum := make(chan int, threadCache)
 		go c.MutiDownloadObjectThread(sourceProfile, sourceBucket, sourceObj, sourcePart, ch)
