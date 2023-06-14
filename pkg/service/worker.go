@@ -129,7 +129,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 		record.Status = model.TaskNotAllSuccess
 		log.Infof("sync task %s record %s not all success totalFile:%d,totalSize:%s", task.Id, record.Id, record.TotalFiles, model.FormatSize(record.TotalSize))
 		filePath := errorKeys.ToJsonFile(record.Id)
-		record.Info = *filePath //TODO: upload to server.
+		record.Info = filePath //TODO: upload to server.
 	} else {
 		// all success
 		record.Status = model.TaskSuccess
