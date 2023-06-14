@@ -712,7 +712,7 @@ func (c *bucketClient) isSameFile(object model.Object, targetProfile, targetBuck
 	if err != nil {
 		// except 404
 		if !strings.Contains(err.Error(), "404") {
-			log.Errorf("head object error:%s", err.Error())
+			log.Errorf("head object %s/%s error:%s", targetBucket, targetKey, err.Error())
 			return false
 		}
 	}

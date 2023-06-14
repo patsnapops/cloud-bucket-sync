@@ -134,10 +134,7 @@ func (r *RequestService) RecordGetByID(recordID string) (*model.Record, error) {
 		return &record, err
 	}
 	err = json.Unmarshal(data, &record)
-	if err != nil {
-		return &record, err
-	}
-	return &record, nil
+	return &record, err
 }
 
 // ------------------ worker ------------------
@@ -205,11 +202,11 @@ func doRequest(url string, method string, param req.Param) ([]byte, error) {
 	}
 	switch r.Response().StatusCode {
 	case 500:
-		return r.Bytes(), fmt.Errorf("pop返回错误信息 %s", string(r.Bytes()))
+		return r.Bytes(), fmt.Errorf("服务端的报错信息: %s", string(r.Bytes()))
 	case 400:
-		return r.Bytes(), fmt.Errorf("pop返回错误信息 %s", string(r.Bytes()))
+		return r.Bytes(), fmt.Errorf("服务端的报错信息: %s", string(r.Bytes()))
 	// case 404:
-	// 	return r.Bytes(), fmt.Errorf("pop返回错误信息 %s", string(r.Bytes()))
+	// 	return r.Bytes(), fmt.Errorf("服务端的报错信息: %s", string(r.Bytes()))
 	default:
 		return r.Bytes(), err
 	}

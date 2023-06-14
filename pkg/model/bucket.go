@@ -103,14 +103,14 @@ type ChanObject struct {
 type ErrorKeys []ErrorKey
 
 // fmt ErrorKeys to jsonFile
-func (e ErrorKeys) ToJsonFile(record_id string) *string {
+func (e ErrorKeys) ToJsonFile(record_id string) string {
 	// 本地创建json文件
-	jsonFile := path.Join("/tmp/cbs/", record_id+".json")
+	jsonFile := path.Join("/opt/data/", record_id+"_error.json")
 	// 创建文件
 	f, err := os.Create(jsonFile)
 	if err != nil {
 		log.Errorf("create jsonFile error: %v", err)
-		return nil
+		return err.Error()
 	}
 	defer f.Close()
 	// 写入文件
@@ -118,7 +118,7 @@ func (e ErrorKeys) ToJsonFile(record_id string) *string {
 		f.WriteString(v.Func + " " + v.Key + " " + strings.ReplaceAll(v.Err.Error(), "\n", "") + "\n")
 	}
 	log.Infof("write error keys to jsonFile: %v", jsonFile)
-	return &jsonFile
+	return jsonFile
 }
 
 type ErrorKey struct {
