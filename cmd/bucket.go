@@ -321,7 +321,6 @@ func syncLocalToBucket(localPath, targetUrl string, input model.SyncInput) {
 		localPath, recursive, input, objectChan)
 	threadChan := make(chan int, threadNum)
 	for object := range objectChan {
-		log.Debugf("source object:%s", tea.Prettify(object))
 		total++
 		targetKey := model.GetTargetKey(object.Key, localPath, prefix)
 		log.Debugf("%s => %s", object.Key, targetKey)

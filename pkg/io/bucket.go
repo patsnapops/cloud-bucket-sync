@@ -58,6 +58,24 @@ func newSession(configProfiles []config.Profile) (map[string]*session.Session, e
 
 }
 
+func (c *bucketClient) Presign(profile, bucketName, objectKey string, expires int64) (string, error) {
+	log.Debugf("get object %s/%s", bucketName, objectKey)
+	if sess, ok := c.sessions[profile]; ok {
+		svc := s3.New(sess)
+		req, _ := svc.GetObjectRequest(&s3.GetObjectInput{
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(objectKey),
+		})
+		url, err := req.Presign(time.Duration(expires) * time.Second)
+		if err != nil {
+			return "", err
+		}
+		return url, nil
+
+	}
+	return "", errors.New("profile not found")
+}
+
 func (c *bucketClient) ListObjects(profile, bucketName, prefix string, input model.Input) ([]string, []model.Object, error) {
 	log.Debugf("list objects %s/%s", bucketName, prefix)
 	objects := make([]model.Object, 0)
@@ -514,9 +532,11 @@ func (c *bucketClient) MutiReadFile(sourceObj model.LocalFile, sourcePart int64,
 	// Do we need more parts
 	for j, start := range startIdx {
 		partIndex++
-		Start := start
 		End := endIdx[j]
-		data := sourceObj.Data[Start:End]
+		// log.Debugf("partIndex:%d,start:%d,end:%d", partIndex, start, End)
+		data := sourceObj.Data[start : End+1]
+		// log.Debugf("len:%d,start:%v.end:%v,end:%v", len(data), sourceObj.Data[start], sourceObj.Data[End], sourceObj.Data[End-1])
+		// log.Debugf("partIndex:%d,start:%d,end:%d", partIndex, data[0], data[len(data)-1])
 		ch <- &model.ChData{
 			PartIndex: partIndex,
 			Data:      data,
@@ -683,7 +703,7 @@ func (c *bucketClient) CopyObjectLocalToRemote(targetProfile string, sourceObj m
 			partIndex++
 			part, err := c.UploadPartWithData(targetProfile, targetBucket, targetKey, upload_id, partIndex, mutiData.Data)
 			if err != nil {
-				log.Fatal(err.Error())
+				log.Errorf(err.Error())
 				break
 			}
 			completed_parts = append(completed_parts, part)

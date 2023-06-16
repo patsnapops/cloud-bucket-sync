@@ -51,12 +51,17 @@ func TestCopyObjectClientSide(t *testing.T) {
 
 // head object test
 func TestHeadObject(t *testing.T) {
-	// object, err := bucketIo.HeadObject(profileFrom, bucketFrom, "zhoushoujiantest/20230527_62559104-98af-4eed-a857-6c50bedcaa40/1685198194.mkv")
-	object, err := bucketIo.HeadObject(profileFrom, bucketFrom, "zhoushoujiantest/1685198194.mkv")
+	// object, err := bucketIo.HeadObject("default", bucketFrom, "redis-test-0")
+	object, err := bucketIo.HeadObject("proxy", "ops-9554", "bin/123cbs")
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println(object)
+}
+
+// test GetObjectPart
+func TestGetObjectPart(t *testing.T) {
+	fmt.Println(bucketIo.GetSourceSplit("proxy", "ops-9554", "bin/123cbs", 3))
 }
 
 // test getSourceSplit

@@ -66,6 +66,7 @@ type ChData struct {
 }
 
 type BucketIo interface {
+	Presign(profile, bucketName, key string, expiresIn int64) (string, error)
 	HeadObject(profile, bucketName, key string) (Object, error)
 
 	GetObject(profile, bucketName, object string) ([]byte, error)
@@ -236,6 +237,7 @@ func ListObjectsWithChanLocalRecursive(
 	} else {
 		// 文件
 		data, _ := os.ReadFile(localPath)
+		// log.Panicf("localPath: %v, data_len: %d", localPath, len(data))
 		etag, _ := CalculateHashForLocalFile(localPath, "md5")
 		objectChan <- &LocalFile{
 			Key:     path.Base(localPath),

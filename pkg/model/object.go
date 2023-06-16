@@ -130,29 +130,25 @@ func PartsRequired(size int64) int64 {
 // part is less than 5MiB, as that could fail the multipart request if
 // it is not the last part.
 func CalculateEvenSplits(size int64) (startIndex, endIndex []int64) {
-	var start int64
+	var start int64 = 0
 	if size == 0 {
 		return
 	}
 	reqParts := PartsRequired(size)
 	startIndex = make([]int64, reqParts)
 	endIndex = make([]int64, reqParts)
-	if start == -1 {
-		start = 0
-	}
 	quot, rem := size/reqParts, size%reqParts
-	nextStart := start
+	log.Debugf("CalculateEvenSplits: %d, %d, %d", size, reqParts, quot)
 	for j := int64(0); j < reqParts; j++ {
 		curPartSize := quot
 		if j < rem {
 			curPartSize++
 		}
-
-		cStart := nextStart
+		cStart := start
 		cEnd := cStart + curPartSize - 1
-		nextStart = cEnd + 1
-
+		start = cEnd + 1
 		startIndex[j], endIndex[j] = cStart, cEnd
+		// log.Debugf("CalculateEvenSplits: %d, %d, %d", j, cStart, cEnd)
 	}
 	return
 }
