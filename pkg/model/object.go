@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/patsnapops/noop/log"
+	"github.com/spf13/cast"
 )
 
 const (
@@ -95,15 +96,16 @@ func ToInt64(s string) (int64, error) {
 
 // 依据Etag获取源的分片数
 // 7c33fc2d3a6e1a92e5eaa20bc9bf030a-49
-func GetPartsCount(etag string) (int64, error) {
+func GetPartsCount(etag string) int64 {
 	// 如不不包含'-'，则为单个分片
 	// 处理掉双引号
 	etag = strings.Replace(etag, "\"", "", -1)
 	log.Debugf("GetPartsCount: %s", etag)
 	if !strings.Contains(etag, "-") {
-		return 1, nil
+		return 0
 	} else {
-		return ToInt64(strings.Split(etag, "-")[1])
+		data := strings.Split(etag, "-")
+		return cast.ToInt64(data[len(data)-1])
 	}
 }
 

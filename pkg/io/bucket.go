@@ -554,12 +554,9 @@ func (c *bucketClient) CopyObjectServerSide(sourceProfile, sourceBucket string, 
 	if c.isSameFile(sourceObj, sourceProfile, targetBucket, targetKey) {
 		return true, nil
 	}
-	sourcePart, err := model.GetPartsCount(sourceObj.ETag)
-	if err != nil {
-		sourcePart = 1
-	}
+	sourcePart := model.GetPartsCount(sourceObj.ETag)
 
-	if sourcePart > 1 {
+	if sourcePart >= 1 {
 		// 大于1个分片的文件，直接分片拷贝
 		var partIndex int64 = 0
 		startIdx, endIdx, err := c.GetSourceSplit(sourceProfile, sourceBucket, sourceObj.Key, sourcePart)
@@ -606,12 +603,9 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 		isSameEtag = true
 		return isSameEtag, nil
 	}
-	sourcePart, err := model.GetPartsCount(sourceObj.ETag)
-	if err != nil {
-		sourcePart = 1
-	}
+	sourcePart := model.GetPartsCount(sourceObj.ETag)
 
-	if sourcePart > 1 {
+	if sourcePart >= 1 {
 		upload_id, err := c.CreateMutiUpload(targetProfile, targetBucket, targetKey)
 		if err != nil {
 			return isSameEtag, err
