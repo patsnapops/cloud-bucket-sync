@@ -33,7 +33,7 @@ var presignCmd = &cobra.Command{
 			}
 			presign(s3Url)
 		default:
-			panic("invalid args")
+			cmd.Help()
 		}
 	},
 }

@@ -52,10 +52,10 @@ func init() {
 	bucketCmd.PersistentFlags().StringVarP(&profileTo, "profile_to", "", "default", "profile name")
 	bucketCmd.PersistentFlags().Int64VarP(&limit, "limit", "l", 0, "limit")
 	bucketCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "r", false, "recursive")
-	bucketCmd.PersistentFlags().StringVarP(&include, "include", "i", "", "txt or txt,csv")
-	bucketCmd.PersistentFlags().StringVarP(&exclude, "exclude", "e", "", "txt or txt,csv")
-	bucketCmd.PersistentFlags().StringVarP(&timeBefore, "time-before", "b", "", "2023-03-01 00:00:00")
-	bucketCmd.PersistentFlags().StringVarP(&timeAfter, "time-after", "a", "", "1992-03-01 00:00:00")
+	bucketCmd.PersistentFlags().StringVarP(&include, "include", "i", "", "string1 or string1,string2")
+	bucketCmd.PersistentFlags().StringVarP(&exclude, "exclude", "e", "", "string1 or string1,string2")
+	bucketCmd.PersistentFlags().StringVarP(&timeBefore, "time-before", "b", "", "\"2023-03-01 00:00:00\"")
+	bucketCmd.PersistentFlags().StringVarP(&timeAfter, "time-after", "a", "", "\"1992-03-01 00:00:00\"")
 	bucketCmd.PersistentFlags().Int64VarP(&queue, "queue", "q", 0, "queue")
 	bucketCmd.PersistentFlags().Int64VarP(&threadNum, "thread-num", "t", 100, "thread num,every thread will sync a object")
 
@@ -135,12 +135,12 @@ var lsCmd = &cobra.Command{
 						if totalObjects > limit && limit != 0 {
 							break
 						}
-						fmt.Printf("%s\t%s\t%22s\t%10s\t%34s\n",
+						fmt.Printf("%s\t%s\t%22s\t%10s\t%34s\t%10s\n",
 							objectChan.Obj.Key, "", objectChan.Obj.LastModified.UTC().Format("2006-01-02 15:04:05"),
-							model.FormatSize(objectChan.Obj.Size), objectChan.Obj.ETag)
+							model.FormatSize(objectChan.Obj.Size), objectChan.Obj.ETag, objectChan.Obj.StorageClass)
 					}
 					if objectChan.Dir != nil {
-						fmt.Printf("%s\t%s\t%s\t%s\t%s\n", *objectChan.Dir, "dir", "", "", "")
+						fmt.Printf("%s\t%s\t%s\t%s\t%s\t%s\n", *objectChan.Dir, "dir", "", "", "", "")
 					}
 					totalObjects++
 				}
@@ -151,18 +151,18 @@ var lsCmd = &cobra.Command{
 					panic(err)
 				}
 				table := tablewriter.NewWriter(os.Stdout)
-				table.SetHeader([]string{"Key", "Type", "Last Modified", "Size", "ETag"})
+				table.SetHeader([]string{"Key", "Type", "Last Modified", "Size", "ETag", "Class"})
 				table.SetBorder(false)
 				table.SetAlignment(tablewriter.ALIGN_RIGHT)
 				var totalSize int64
 				for _, dir := range dirs {
-					table.Append([]string{dir, "dir", "", "", ""})
+					table.Append([]string{dir, "dir", "", "", "", ""})
 				}
 				for _, object := range objects {
-					table.Append([]string{object.Key, "", object.LastModified.UTC().Format("2006-01-02 15:04:05"), model.FormatSize(object.Size), object.ETag})
+					table.Append([]string{object.Key, "", object.LastModified.UTC().Format("2006-01-02 15:04:05"), model.FormatSize(object.Size), object.ETag, object.StorageClass})
 					totalSize += object.Size
 				}
-				table.SetFooter([]string{"", "", "Total Objects: ", model.FormatSize(totalSize), fmt.Sprintf("%d", len(objects))})
+				table.SetFooter([]string{"", "", "", "Total Objects: ", model.FormatSize(totalSize), fmt.Sprintf("%d", len(objects))})
 				table.Render()
 				log.Debugf("list objects cost %s", time.Since(timeStart))
 			}
@@ -385,8 +385,9 @@ func syncBucketToLocal(sourceUrl, targetPath string, input model.SyncInput) {
 		go func(object *model.ChanObject, targetPath string) {
 			body, err := bucketIo.GetObject(profileFrom, bucketName, object.Obj.Key)
 			if err != nil {
-				log.Debugf("%s %s%s", profileFrom, bucketName, object.Obj.Key)
+				log.Debugf("%s %s/%s", profileFrom, bucketName, object.Obj.Key)
 				log.Errorf("download failed:%s", err.Error())
+				<-threadChan
 				return
 			}
 			// body 写入文件

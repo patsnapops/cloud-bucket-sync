@@ -23,8 +23,9 @@ import (
 )
 
 var (
-	port            string
-	disableSchedule bool
+	port                string
+	withOutSchedule     bool
+	withDingtalkApprove bool // 任务是否开启钉钉审批
 )
 
 var (
@@ -34,8 +35,9 @@ var (
 
 func init() {
 	apiServerCmd.AddCommand(startCmd)
-	startCmd.Flags().StringVarP(&port, "port", "p", "8012", "manager server port")
-	startCmd.Flags().BoolVarP(&disableSchedule, "disable-schedule", "", false, "disable schedule")
+	startCmd.Flags().StringVarP(&port, "port", "p", "8012", "指定端口号(默认8012))")
+	startCmd.Flags().BoolVarP(&withOutSchedule, "without-schedule", "", false, "是否禁用定时任务(默认不禁用)")
+	startCmd.Flags().BoolVarP(&withDingtalkApprove, "with-dingtalk-approve", "", false, "任务是否开启钉钉审批(默认不开启)")
 }
 
 var apiServerCmd = &cobra.Command{
@@ -104,7 +106,7 @@ func startGin() {
 }
 
 func startSchedule(managerC model.ManagerContract) {
-	if disableSchedule {
+	if withOutSchedule {
 		log.Infof("schedule is disabled.")
 		return
 	}
