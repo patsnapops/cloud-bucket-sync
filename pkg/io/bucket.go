@@ -612,7 +612,7 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 		}
 		log.Debugf("upload_id: %s", upload_id)
 		defer c.AbortMutiPartUpload(targetProfile, targetBucket, targetKey, upload_id)
-		threadCache := 10 // 对象切片的缓存数量，约大越占内存，但可以提高单个分片对象的完成速度。
+		threadCache := 2 // 对象切片的缓存数量，约大越占内存，但可以提高单个分片对象的完成速度。
 		ch := make(chan *model.ChData, threadCache)
 		threadNum := make(chan int, threadCache)
 		go c.MutiDownloadObjectThread(sourceProfile, sourceBucket, sourceObj, sourcePart, ch)
