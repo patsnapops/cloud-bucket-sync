@@ -134,6 +134,7 @@ func initDB(apiConfig config.ManagerConfig) *gorm.DB {
 	if err != nil {
 		log.Panicf("gorm with postgres initialization failed, check config.PostgresUrl")
 	}
+	log.Infof("connect db %s:%s", apiConfig.PG.Host, apiConfig.PG.Database)
 	rdb.AutoMigrate(
 		model.Task{}, model.Record{}, model.Worker{},
 	)

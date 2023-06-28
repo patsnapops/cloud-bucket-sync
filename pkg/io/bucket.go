@@ -37,7 +37,7 @@ func NewBucketClient(config []config.Profile) model.BucketIo {
 func newSession(configProfiles []config.Profile) (map[string]*session.Session, error) {
 	sessions := make(map[string]*session.Session)
 	for _, param := range configProfiles {
-		// log.Debugf("new session %s", param.Name)
+		// log.Debugf(tea.Prettify(param))
 		s3_conf := &aws.Config{
 			Credentials: credentials.NewStaticCredentials(param.AK, param.SK, ""),
 			Region:      aws.String(param.Region),
@@ -126,7 +126,7 @@ func (c *bucketClient) ListObjects(profile, bucketName, prefix string, input mod
 }
 
 func (c *bucketClient) ListObjectsWithChan(profile, bucketName, prefix string, input model.Input, objectsChan chan *model.ChanObject) {
-	log.Debugf("list objects %s/%s", bucketName, prefix)
+	log.Debugf("list objects s3://%s/%s", bucketName, prefix)
 	log.Debugf(tea.Prettify(input))
 	if sess, ok := c.sessions[profile]; ok {
 		svc := s3.New(sess)
@@ -362,6 +362,7 @@ func (c *bucketClient) GetObject(profile, bucketName, object string) ([]byte, er
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(object),
 		}
+		log.Debugf(tea.Prettify(input))
 		resp, err := svc.GetObject(input)
 		if err != nil {
 			return nil, err

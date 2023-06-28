@@ -27,6 +27,7 @@ func init() {
 	taskCmd.AddCommand(applyCmd)
 	taskCmd.AddCommand(showCmd)
 	taskCmd.AddCommand(execCmd)
+	taskCmd.AddCommand(cancelCmd)
 	taskCmd.PersistentFlags().StringVarP(&taskFile, "file", "f", "", "task file path, default is ./task.json")
 
 	showCmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "output format, support table/json")
@@ -121,6 +122,21 @@ var execCmd = &cobra.Command{
 	},
 }
 
+var cancelCmd = &cobra.Command{
+	Use:   "cancel",
+	Short: "to cancel task",
+	Long:  "\nyou know for cancel task!",
+	Run: func(cmd *cobra.Command, args []string) {
+		initApp()
+		switch len(args) {
+		case 1:
+			cancelTask(cmd, args)
+		default:
+			cmd.Help()
+		}
+	},
+}
+
 func showTask(cmd *cobra.Command, args []string) {
 	tasks, err := requestC.TaskQuery(model.TaskInput{})
 	if err != nil {
@@ -208,4 +224,31 @@ func execTask(cmd *cobra.Command, args []string) {
 		panic(err)
 	}
 	fmt.Println(tea.Prettify(record))
+}
+
+// cancel task
+func cancelTask(cmd *cobra.Command, args []string) {
+	taskID := args[0]
+	// query record by taskid
+	records, err := requestC.RecordQuery(model.RecordInput{
+		TaskID: taskID,
+	})
+	if err != nil {
+		panic(err)
+	}
+	if len(records) == 0 {
+		log.Infof("task %s not found", taskID)
+		return
+	}
+	for _, record := range records {
+		if record.Status == model.TaskRunning ||
+			record.Status == model.TaskPending {
+			err := requestC.TaskCancel(record.Id, "cli")
+			if err != nil {
+				panic(err)
+			}
+			log.Infof("canceled record %s success", record.Id)
+		}
+	}
+	log.Infof("cancel task end...")
 }

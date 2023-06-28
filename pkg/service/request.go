@@ -211,3 +211,16 @@ func doRequest(url string, method string, param req.Param) ([]byte, error) {
 		return r.Bytes(), err
 	}
 }
+
+func (r *RequestService) TaskCancel(recordID, operator string) error {
+	input := req.Param{
+		"record_id": recordID,
+		"operator":  operator,
+		"status":    model.TaskCancel,
+	}
+	_, err := doRequest(r.Url+"/action", "post", input)
+	if err != nil {
+		return err
+	}
+	return nil
+}

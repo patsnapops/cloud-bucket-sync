@@ -25,7 +25,7 @@ type Task struct {
 	Exclude       string    `json:"exclude" gorm:"type:text"`                                                                                                     // 排除
 	StorageClass  string    `json:"storage_class" gorm:"not null;default:STANDARD"`                                                                               // 存储类型 STANDARD,STANDARD_IA,ONEZONE_IA,INTELLIGENT_TIERING,REDUCED_REDUNDANCY,STANDARD_IA,ONEZONE_IA,INTELLIGENT_TIERING,REDUCED_REDUNDANCY
 	Meta          string    `json:"meta" gorm:"type:text" example:"Expires:2022-10-12T00:00:00.000Z#Cache-Control:no-cache#Content-Encoding:gzip#x-cos-meta-x:x"` // 任务元信息
-	// IsOverwrite   *bool     `json:"is_overwrite,omitempty" gorm:"not null;default:false"`                                                                         // 是否覆盖 默认覆盖 true(弃用，接口实现了md5sum的比对。)
+	IsApproved    *bool     `json:"is_approved" gorm:"not null;default:false" example:"false"`                                                                    // 是否已经审核通过
 }
 
 func (t *Task) ToMap() map[string]interface{} {
