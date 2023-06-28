@@ -52,6 +52,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 			time.Sleep(1 * time.Second)
 		}
 	}(&record)
+
 	go w.BucketIo.ListObjectsWithChan(task.SourceProfile, sourceBucket, sourcePrefix, model.Input{
 		Recursive:  true,
 		Include:    strings.Split(task.Include, ","),
@@ -60,6 +61,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 		TimeAfter:  model.StringToTime(task.TimeAfter),
 		Limit:      0,
 	}, objectsChan)
+
 	log.Infof("start sync task %v", task)
 	threadNum := make(chan int, w.ThreadNum)
 	for object := range objectsChan {
@@ -69,12 +71,12 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 			log.Infof("got cancel signal,stop sync record %v", record)
 			break
 		}
-		targetKey := model.GetTargetKey(object.Obj.Key, sourcePrefix, targetPrefix)
 		threadNum <- 1
-		go func(object *model.ChanObject, targetKey string) {
+		go func(object *model.ChanObject) {
 			defer func() {
 				<-threadNum
 			}()
+			targetKey := model.GetTargetKey(object.Obj.Key, sourcePrefix, targetPrefix)
 			if *task.IsServerSide {
 				isSameEtag, err := w.BucketIo.CopyObjectServerSide(task.SourceProfile, sourceBucket, *object.Obj, targetBucket, targetKey)
 				if err != nil {
@@ -112,7 +114,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 					log.Debugf("%s upload object %s/%s success. same Etag skip.", record.Id, targetBucket, object.Obj.Key)
 				}
 			}
-		}(object, targetKey)
+		}(object)
 	}
 
 	// 等待所有线程结束
@@ -120,6 +122,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 		if len(threadNum) == 0 {
 			break
 		}
+		log.Infof("waiting for all thread done. %d", len(threadNum))
 		time.Sleep(1 * time.Second)
 	}
 

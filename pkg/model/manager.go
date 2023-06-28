@@ -30,4 +30,7 @@ type ManagerIo interface {
 	UpdateTask(task *Task) error
 	DeleteTask(taskID string) error
 	ExecuteTask(id, operator, new_mode string) (recordID string, err error) //如果输入new_mode要指定
+
+	// 创建钉钉审批流程
+	CreateDingTalkProcess(taskID string) (processID string, err error)
 }

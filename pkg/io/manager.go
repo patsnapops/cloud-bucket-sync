@@ -156,3 +156,7 @@ func (c *managerClient) ExecuteTask(taskID, operator, runningMode string) (strin
 	resL := c.db.Model(&recordTask).Create(&recordTask)
 	return recordTask.Id, resL.Error
 }
+
+func (c *managerClient) CreateDingTalkProcess(taskID string) (processID string, err error) {
+	return
+}
