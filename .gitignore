@@ -7,4 +7,4 @@ config/worker.yaml
 docs/cbs-bucket.md
 .cbs_rm_error.txt
 *.log
-tests/
+tests/tmp/

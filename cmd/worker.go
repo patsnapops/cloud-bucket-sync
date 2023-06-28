@@ -139,8 +139,8 @@ func run(worker model.Worker) {
 
 // 判断任务和节点的亲和性
 func checkTaskAndWorkerAffinity(task *model.Task, worker model.Worker) bool {
-	if task.WorkerTag == "" {
-		log.Errorf("任务没有指定workerTag %s", task.Id)
+	if task.WorkerTag == "" || !strings.Contains(task.WorkerTag, "-") {
+		log.Errorf("task taskId:%s workerTag err. %s", task.Id, task.WorkerTag)
 		return false
 	}
 	taskCloud := task.WorkerTag[0:strings.Index(task.WorkerTag, "-")]

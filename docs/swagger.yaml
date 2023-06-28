@@ -39,8 +39,9 @@ definitions:
         description: 运行模式, syncOnce,KeepSync
         type: string
       status:
+        allOf:
+        - $ref: '#/definitions/model.Status'
         description: 任务状态 请走action接口去修改。
-        type: string
       task_id:
         description: 任务ID
         type: string
@@ -56,6 +57,32 @@ definitions:
         description: 执行任务的workerID
         type: string
     type: object
+  model.Status:
+    enum:
+    - pending
+    - waiting
+    - running
+    - success
+    - failed
+    - cancel
+    - notallsuccess
+    type: string
+    x-enum-comments:
+      TaskCancel: 任务被取消的状态
+      TaskFailed: 任务执行失败的状态
+      TaskNotAllSuccess: 任务执行成功但是有部分文件失败的状态
+      TaskPending: 任务创建后的状态
+      TaskRunning: 任务执行中的状态
+      TaskSuccess: 任务执行成功的状态
+      TaskWaiting: 任务等待执行的状态
+    x-enum-varnames:
+    - TaskPending
+    - TaskWaiting
+    - TaskRunning
+    - TaskSuccess
+    - TaskFailed
+    - TaskCancel
+    - TaskNotAllSuccess
   model.Task:
     properties:
       corn:
@@ -76,7 +103,7 @@ definitions:
       is_deleted:
         type: boolean
       is_server_side:
-        description: 是否跨区域,默认启用，决定是否流量经过本地，涉及到流量费用
+        description: 是否使用云服务商后台执行，决定是否在本地产生流量。只有同一个云厂商后台才可能支持。默认为 false。走后台传输会省流量费用。
         type: boolean
       is_silence:
         description: 是否静默 默认false 静默不发送通知

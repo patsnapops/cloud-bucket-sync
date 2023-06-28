@@ -1,0 +1,14 @@
+[
+    {
+        "worker_tag": "awscn",
+        "name": "debug",
+        "source_url": "s3://zhoushoujiantest/123/",
+        "target_url": "s3://zhoushoujiantest/tmp/dyj/weekly/",
+        "source_profile": "proxy",
+        "target_profile": "proxy",
+        "sync_mode": "syncOnce",
+        "submitter": "zhoushoujian",
+        "is_silence": false,
+        "is_server_side": false
+    }
+]

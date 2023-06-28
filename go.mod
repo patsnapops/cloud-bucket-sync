@@ -13,6 +13,7 @@ require (
 	github.com/patsnapops/go-dingtalk-sdk-wrapper v0.0.3
 	github.com/patsnapops/http-headers v0.0.0-20230215051743-3156c9c280e2
 	github.com/patsnapops/noop v0.4.0
+	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/robfig/cron v1.2.0
 	github.com/spf13/cast v1.5.0
 	github.com/spf13/cobra v1.7.0
@@ -20,6 +21,7 @@ require (
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.0
 	github.com/swaggo/swag v1.16.1
+	github.com/vrischmann/go-metrics-influxdb v0.1.1
 	gorm.io/driver/postgres v1.5.0
 	gorm.io/gorm v1.25.1
 )
@@ -54,6 +56,7 @@ require (
 	github.com/goccy/go-json v0.10.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/influxdata/influxdb1-client v0.0.0-20191209144304-8bf82d3c094d // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jackc/pgx/v5 v5.3.0 // indirect

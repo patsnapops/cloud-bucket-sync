@@ -8,7 +8,7 @@ type Task struct {
 	UpdatedAt     time.Time `json:"updated_at" gorm:"column:updated_at"`
 	IsDeleted     bool      `json:"is_deleted" gorm:"not null;default:false"`
 	WorkerTag     string    `json:"worker_tag" gorm:"not null;default:''" binding:"required"`                                                                     // 任务执行节点, 用于标记任务归属于哪个worker,会涉及到费用，需要注意选择正确的workerTag。借鉴与gitlab CICD runner.
-	IsServerSide  *bool     `json:"is_server_side" gorm:"not null;default:true" binding:"required"`                                                               // 是否跨区域,默认启用，决定是否流量经过本地，涉及到流量费用
+	IsServerSide  *bool     `json:"is_server_side" gorm:"not null;default:false" binding:"required"`                                                              // 是否使用云服务商后台执行，决定是否在本地产生流量。只有同一个云厂商后台才可能支持。默认为 false。走后台传输会省流量费用。
 	Name          string    `json:"name" gorm:"not null" binding:"required"`                                                                                      // 任务名称
 	SourceUrl     string    `json:"source_url" gorm:"not null" binding:"required"`                                                                                // S3URL s3://sourceBucket/key 支持文件和目录结尾
 	TargetUrl     string    `json:"target_url" gorm:"not null" binding:"required"`                                                                                // S3URL s3://destBucket/dir/ 不支持文件结尾 没有/的目录看作目录处理
