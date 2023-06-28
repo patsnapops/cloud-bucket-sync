@@ -41,7 +41,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = cmd.Help()
 		},
-		Version: "v0.0.2-beta",
+		Version: "v0.0.3-beta",
 	}
 )
 
