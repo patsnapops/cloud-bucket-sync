@@ -382,12 +382,14 @@ func syncBucketToLocal(sourceUrl, targetPath string, input model.SyncInput) {
 		}
 		log.Debugf("%s => %s", object.Obj.Key, targetPath)
 		threadChan <- 1
-		go func(object *model.ChanObject, targetPath string) {
+		go func(object *model.ChanObject) {
+			defer func() {
+				<-threadChan
+			}()
 			body, err := bucketIo.GetObject(profileFrom, bucketName, object.Obj.Key)
 			if err != nil {
 				log.Debugf("%s %s/%s", profileFrom, bucketName, object.Obj.Key)
 				log.Errorf("download failed:%s", err.Error())
-				<-threadChan
 				return
 			}
 			// body 写入文件
@@ -396,8 +398,7 @@ func syncBucketToLocal(sourceUrl, targetPath string, input model.SyncInput) {
 				panic(err)
 			}
 			log.Infof("download success: %s", targetPath)
-			<-threadChan
-		}(object, targetPath)
+		}(object)
 		for {
 			if len(threadChan) == 0 {
 				break

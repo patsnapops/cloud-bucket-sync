@@ -41,10 +41,11 @@ func newSession(configProfiles []config.Profile) (map[string]*session.Session, e
 		s3_conf := &aws.Config{
 			Credentials: credentials.NewStaticCredentials(param.AK, param.SK, ""),
 			Region:      aws.String(param.Region),
-			// DisableSSL:       aws.Bool(true),  //trail 需要关闭
+			// DisableSSL:                     aws.Bool(true),  //trail 需要关闭
 			S3ForcePathStyle: aws.Bool(false), //virtual-host style方式，不要修改
-			// MaxRetries:       aws.Int(0),
-			Endpoint: aws.String(param.Endpoint),
+			// MaxRetries:       aws.Int(1),
+			DisableRestProtocolURICleaning: aws.Bool(true),
+			Endpoint:                       aws.String(param.Endpoint),
 		}
 		// log.Debugf(s3_conf.Endpoint)
 		sess, err := session.NewSession(s3_conf)
@@ -370,7 +371,7 @@ func (c *bucketClient) GetObject(profile, bucketName, object string) ([]byte, er
 		defer resp.Body.Close()
 		return ioutil.ReadAll(resp.Body)
 	}
-	return nil, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
+	return nil, fmt.Errorf("profile %s not found,please check cli.yaml config", profile)
 }
 
 // 分片下载对象数据
@@ -760,7 +761,7 @@ func (c *bucketClient) isTencent(bucket string) bool {
 	return strings.HasSuffix(bucket, "-1251949819")
 }
 
-// 获取源分片的起止
+// 获取源分片的起止,分片较大的时候过程较慢
 func (c *bucketClient) GetSourceSplit(sourceProfile, sourceBucket, key string, sourcePart int64) (startIndex, endIndex []int64, err error) {
 	if sess, ok := c.sessions[sourceProfile]; ok {
 		// 依据源分片大小进行分片下载

@@ -18,7 +18,11 @@ var (
 	operator string
 	syncMode string
 
+	// show task flag
+	// 支持 table/json的查看方式
 	outputFormat string
+	// 默认只展示正在运行的任务
+	// showAll bool
 )
 
 func init() {
@@ -31,6 +35,7 @@ func init() {
 	taskCmd.PersistentFlags().StringVarP(&taskFile, "file", "f", "", "task file path, default is ./task.json")
 
 	showCmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "output format, support table/json")
+	// showCmd.Flags().BoolVarP(&showAll, "all", "a", false, "show all tasks")
 
 	execCmd.Flags().StringVarP(&operator, "operator", "o", "cli", "task operator")
 	execCmd.Flags().StringVarP(&syncMode, "sync-mode", "s", "", "task sync mode, support keepSync（real-time sync） syncOnce（one-time sync）")
@@ -68,16 +73,18 @@ var showCmd = &cobra.Command{
 		initApp()
 		switch len(args) {
 		case 0:
+			input := model.TaskInput{}
+			tasks, err := requestC.TaskQuery(input)
+			if err != nil {
+				panic(err)
+			}
 			if outputFormat == "json" {
-				tasks, err := requestC.TaskQuery(model.TaskInput{})
-				if err != nil {
-					panic(err)
-				}
+
 				for _, task := range tasks {
 					fmt.Println(tea.Prettify(task))
 				}
 			} else {
-				showTask(cmd, args)
+				showTask(tasks)
 			}
 		case 1:
 			// show taskID
@@ -137,11 +144,7 @@ var cancelCmd = &cobra.Command{
 	},
 }
 
-func showTask(cmd *cobra.Command, args []string) {
-	tasks, err := requestC.TaskQuery(model.TaskInput{})
-	if err != nil {
-		panic(err)
-	}
+func showTask(tasks []*model.Task) {
 	// table show
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetBorder(false)

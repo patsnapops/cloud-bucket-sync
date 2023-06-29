@@ -109,7 +109,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 				}
 				if !isSameEtag {
 					record.TotalSize += object.Obj.Size
-					log.Infof("%s upload object %s/%s success", record.Id, targetBucket, object.Obj.Key)
+					log.Debugf("%s upload object %s/%s success", record.Id, targetBucket, object.Obj.Key)
 				} else {
 					log.Debugf("%s upload object %s/%s success. same Etag skip.", record.Id, targetBucket, object.Obj.Key)
 				}
@@ -122,7 +122,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 		if len(threadNum) == 0 {
 			break
 		}
-		log.Infof("waiting for all thread done. %d", len(threadNum))
+		log.Infof("waiting for all thread done. %d taskName %s", len(threadNum), task.Name)
 		time.Sleep(1 * time.Second)
 	}
 
