@@ -19,6 +19,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// 上传
+	upload = iota
+	// 下载
+	download
+	// 桶到桶
+	bucketToBucket
+)
+
 var (
 	profileFrom string
 	profileTo   string
@@ -82,7 +91,7 @@ var bucketCmd = &cobra.Command{
 
 var syncCmd = &cobra.Command{
 	Use:  "sync",
-	Long: "sync bucket or object with s3_url must start with s3://",
+	Long: "sync bucket or object with s3_url must start with s3:// or cos://",
 	Run: func(cmd *cobra.Command, args []string) {
 		initApp()
 		input := model.SyncInput{
@@ -94,22 +103,39 @@ var syncCmd = &cobra.Command{
 		log.Debugf(tea.Prettify(input))
 		switch len(args) {
 		case 2:
-			if strings.HasPrefix(args[0], "s3://") && strings.HasPrefix(args[1], "s3://") {
-				// sync bucket to bucket
-				syncBucketToBucket(args[0], args[1], input)
-			} else if strings.HasPrefix(args[0], "s3://") && !strings.HasPrefix(args[1], "s3://") {
-				// sync bucket to local
-				syncBucketToLocal(args[0], args[1], input)
-			} else if !strings.HasPrefix(args[0], "s3://") && strings.HasPrefix(args[1], "s3://") {
-				// sync local to bucket
+			syncMode := getSyncMode(args[0], args[1])
+			switch syncMode {
+			case upload:
 				syncLocalToBucket(args[0], args[1], input)
-			} else {
+			case download:
+				syncBucketToLocal(args[0], args[1], input)
+			case bucketToBucket:
+				syncBucketToBucket(args[0], args[1], input)
+			default:
 				cmd.Printf("s3_url must start with s3://")
 			}
 		default:
 			cmd.Help()
 		}
 	},
+}
+
+// 兼容 cos 和 s3
+func getSyncMode(sourceUrl, targetUrl string) int {
+	if strings.HasPrefix(sourceUrl, "cos://") {
+		sourceUrl = strings.Replace(sourceUrl, "cos://", "s3://", 1)
+	}
+	if strings.HasPrefix(targetUrl, "cos://") {
+		targetUrl = strings.Replace(targetUrl, "cos://", "s3://", 1)
+	}
+	if strings.HasPrefix(sourceUrl, "s3://") && strings.HasPrefix(targetUrl, "s3://") {
+		return bucketToBucket
+	} else if strings.HasPrefix(sourceUrl, "s3://") && !strings.HasPrefix(targetUrl, "s3://") {
+		return download
+	} else if !strings.HasPrefix(sourceUrl, "s3://") && strings.HasPrefix(targetUrl, "s3://") {
+		return upload
+	}
+	return -1
 }
 
 var lsCmd = &cobra.Command{

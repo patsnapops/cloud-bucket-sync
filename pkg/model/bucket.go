@@ -185,7 +185,11 @@ func ListObjectsWithFilter(key Object, input Input) bool {
 }
 
 // turn s3://bucket/prefix to bucket and prefix
+// 兼容cos://bucket/prefix
 func ParseBucketAndPrefix(s3Path string) (bucket, prefix string) {
+	if strings.HasPrefix(s3Path, "cos://") {
+		s3Path = strings.Replace(s3Path, "cos://", "s3://", 1)
+	}
 	bucketS := strings.Split(strings.TrimPrefix(s3Path, "s3://"), "/")
 	bucket = bucketS[0]
 	if len(bucketS) > 1 {
