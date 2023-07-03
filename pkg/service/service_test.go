@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/patsnapops/noop/log"
 )
 
@@ -100,4 +101,10 @@ func TestCopyObjectServerSide(t *testing.T) {
 // test CalculateEvenSplitsByPartSize
 func TestCalculateEvenSplitsByPartSize(t *testing.T) {
 	model.CalculateEvenSplitsByPartSize(108152993, 17179870)
+}
+
+// test GetSystemStatus
+func TestGetSystemStatus(t *testing.T) {
+	status := model.GetSystemStatus()
+	fmt.Println(tea.Prettify(status))
 }

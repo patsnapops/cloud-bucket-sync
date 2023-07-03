@@ -1,13 +1,13 @@
 [
     {
-        "worker_tag": "awscn",
-        "name": "debug",
-        "source_url": "s3://zhoushoujiantest/123/",
-        "target_url": "s3://zhoushoujiantest/tmp/dyj/weekly/",
-        "source_profile": "proxy",
-        "target_profile": "proxy",
+        "worker_tag": "aws-cn",
+        "name": "bio-meta 全量同步",
+        "source_url": "s3://search-us-east-1-prod/eks/s-search-bio-metadata-solr/20230629/",
+        "target_url": "s3://search-cn-northwest-1/eks/s-search-bio-metadata-solr/20230629/",
+        "source_profile": "us7478",
+        "target_profile": "cn3977",
         "sync_mode": "syncOnce",
-        "submitter": "zhoushoujian",
+        "submitter": "qiushiyong",
         "is_silence": false,
         "is_server_side": false
     }

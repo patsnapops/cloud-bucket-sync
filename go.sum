@@ -279,8 +279,8 @@ github.com/olekukonko/tablewriter v0.0.5 h1:P2Ga83D34wi1o9J6Wh1mRuqd4mF/x/lgBS7N
 github.com/olekukonko/tablewriter v0.0.5/go.mod h1:hPp6KlRPjbx+hW8ykQs1w3UBbZlj6HuIJcUGPhkA7kY=
 github.com/patsnapops/ginx v0.1.3 h1:lKF24rddVB/+gbe9XUNrcccrYbuAaejrIxvMaxRPFGY=
 github.com/patsnapops/ginx v0.1.3/go.mod h1:d5MSIvh/0I/T7ZG3/o4AOH8oWN8DTXMTOOeRVpANfUQ=
-github.com/patsnapops/go-dingtalk-sdk-wrapper v0.0.3 h1:9BepgKQ8pfw0YNkGn3yujWwSRTxWi7CH63Ef82z4rWc=
-github.com/patsnapops/go-dingtalk-sdk-wrapper v0.0.3/go.mod h1:Xk0wQTIOFJi6GD3+hlBq3gkDnsWd4IFXsTva/7VX/no=
+github.com/patsnapops/go-dingtalk-sdk-wrapper v0.0.0-20230626101105-b71688cc1a46 h1:3b+vPUOCMIaeTKSdNOTZgrv7D33RIQPuS/ti+LrTPJg=
+github.com/patsnapops/go-dingtalk-sdk-wrapper v0.0.0-20230626101105-b71688cc1a46/go.mod h1:P050qeVaBMe7hJCVVtDFkY/Qf2qbtzsI0DIUULePHLo=
 github.com/patsnapops/http-headers v0.0.0-20230215051743-3156c9c280e2 h1:qfvuhs/A2BA4yQRLJYI/Ly7OLaC2sqRiSlcIiBus/Qo=
 github.com/patsnapops/http-headers v0.0.0-20230215051743-3156c9c280e2/go.mod h1:KyR1WP94Bz5KAT80f0j2wAih/QX9x45TDKfq4e+HJLg=
 github.com/patsnapops/noop v0.4.0 h1:LqsySjIFIlyVEkrDIfvKLn9rl3VKcyv9XFer0fM4V4M=
