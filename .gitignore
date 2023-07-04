@@ -1,6 +1,5 @@
 cbs.log
 config/cli.yaml
-cbs
 config/manager.yaml
 .gitignore
 config/worker.yaml

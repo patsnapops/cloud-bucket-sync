@@ -1,6 +1,7 @@
 #!/bin/bash
 # Build script for the project
-go build -o /usr/local/bin/
+go build
+cp cbs /usr/local/bin/cbs
 /usr/local/bin/cbs -v
 if [ $? -eq 0 ]; then
     echo "Build successful"
