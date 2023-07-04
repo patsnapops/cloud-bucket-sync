@@ -4,7 +4,6 @@ import (
 	"cbs/config"
 	"cbs/pkg/io"
 	"cbs/pkg/model"
-	"cbs/pkg/service"
 	"time"
 
 	"github.com/patsnapops/noop/log"
@@ -60,6 +59,5 @@ func initApp() {
 	// init config
 	cliConfig = config.LoadCliConfig(configPath)
 	bucketIo = io.NewBucketClient(cliConfig.Profiles)
-	requestC = service.NewRequestService(cliConfig.Manager)
 	log.Debugf("init app success")
 }

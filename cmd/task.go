@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"cbs/pkg/model"
+	"cbs/pkg/service"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -55,6 +56,7 @@ var applyCmd = &cobra.Command{
 	Short: "to create task",
 	Long:  "\nyou know for submit a task!",
 	Run: func(cmd *cobra.Command, args []string) {
+		requestC = service.NewRequestService(cliConfig.Manager)
 		initApp()
 		switch len(args) {
 		case 0:
@@ -70,6 +72,7 @@ var showCmd = &cobra.Command{
 	Short: "show tasks",
 	Long:  "\nyou know for show tasks!",
 	Run: func(cmd *cobra.Command, args []string) {
+		requestC = service.NewRequestService(cliConfig.Manager)
 		initApp()
 		switch len(args) {
 		case 0:
@@ -119,6 +122,7 @@ var execCmd = &cobra.Command{
 	Short: "to exec task",
 	Long:  "\nyou know for exec task!",
 	Run: func(cmd *cobra.Command, args []string) {
+		requestC = service.NewRequestService(cliConfig.Manager)
 		initApp()
 		switch len(args) {
 		case 1:
@@ -134,6 +138,7 @@ var cancelCmd = &cobra.Command{
 	Short: "to cancel task",
 	Long:  "\nyou know for cancel task!",
 	Run: func(cmd *cobra.Command, args []string) {
+		requestC = service.NewRequestService(cliConfig.Manager)
 		initApp()
 		switch len(args) {
 		case 1:

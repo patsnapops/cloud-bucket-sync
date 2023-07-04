@@ -674,7 +674,7 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 			if len(threadNum) == 0 {
 				break
 			}
-			log.Infof("wait for upload part complete")
+			log.Debugf("wait for upload part complete")
 			time.Sleep(time.Second * 1)
 		}
 		// completed_map_parts 排序生成 completed_parts
