@@ -119,7 +119,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 
 	// 等待所有线程结束
 	for {
-		if len(threadNum) == 0 {
+		if len(threadNum) == 0 || record.Status == model.TaskCancel {
 			break
 		}
 		// 基本上在等等计算源对象的分片信息，分片多比较耗时。

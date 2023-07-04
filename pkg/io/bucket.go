@@ -415,6 +415,25 @@ func (c *bucketClient) HeadObject(profile, bucketName, object string) (model.Obj
 	return model.Object{}, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
 }
 
+// getpartsize 获取1个分片大小
+func (c *bucketClient) GetPartSizeByPartNu(profile, bucketName, key string, partNu int64) (int64, error) {
+	if sess, ok := c.sessions[profile]; ok {
+		svc := s3.New(sess)
+		input := &s3.HeadObjectInput{
+			Bucket:     aws.String(bucketName),
+			Key:        aws.String(key),
+			PartNumber: aws.Int64(partNu),
+		}
+		resp, err := svc.HeadObject(input)
+		if err != nil {
+			return 0, err
+		}
+		log.Debugf(tea.Prettify(resp))
+		return *resp.ContentLength, nil
+	}
+	return 0, fmt.Errorf("profile %s not found,please check cli.yaml config.", profile)
+}
+
 // 下载分片的时候按照分片大小进行分片下载
 func (c *bucketClient) MutiDownloadObject(profileFrom, sourceBucket string, sourceObj model.Object, sourcePart int64, ch chan<- *model.ChData) {
 	defer close(ch)
@@ -471,7 +490,7 @@ func (c *bucketClient) MutiDownloadObjectThread(profileFrom, sourceBucket string
 	threadChan := make(chan int, 8)
 	var partIndex int64 = 0
 	if c.isTencent(sourceBucket) {
-		startIdx, endIdx := model.CalculateEvenSplits(sourceObj.Size)
+		startIdx, endIdx := model.CalculateEvenSplitsByParts(sourceObj.Size, sourcePart)
 		// Do we need more parts
 		for j, start := range startIdx {
 			partIndex++
@@ -497,6 +516,14 @@ func (c *bucketClient) MutiDownloadObjectThread(profileFrom, sourceBucket string
 			}
 			return
 		}
+		// sourceObjPartSize, err := c.GetPartSizeByPartNu(profileFrom, sourceBucket, sourceObj.Key, 1)
+		// if err != nil {
+		// 	ch <- &model.ChData{
+		// 		Err: err,
+		// 	}
+		// 	return
+		// }
+		// startIndex, endIndex := model.CalculateEvenSplitsByPartSize(sourceObj.Size, sourceObjPartSize)
 		for j, start := range startIndex {
 			partIndex++
 			Start := start
@@ -778,10 +805,10 @@ func (c *bucketClient) GetSourceSplit(sourceProfile, sourceBucket, key string, s
 				log.Errorf("get source split error:%s", err.Error())
 				return nil, nil, err
 			}
-			// log.Debugf("%d", *resp.ContentLength)
 			end := start + *resp.ContentLength - 1
 			startIndex = append(startIndex, start)
 			endIndex = append(endIndex, end)
+			log.Debugf("%d %d %d-%d %d", i, *resp.PartsCount, start, end, *resp.ContentLength)
 			start = end + 1
 		}
 		return startIndex, endIndex, nil

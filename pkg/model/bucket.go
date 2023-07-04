@@ -68,6 +68,7 @@ type ChData struct {
 type BucketIo interface {
 	Presign(profile, bucketName, key string, expiresIn int64) (string, error)
 	HeadObject(profile, bucketName, key string) (Object, error)
+	GetPartSizeByPartNu(profile, bucketName, key string, partNu int64) (int64, error)
 
 	GetObject(profile, bucketName, object string) ([]byte, error)
 	GetSourceSplit(sourceProfile, sourceBucket, key string, sourcePart int64) (startIndex, endIndex []int64, err error)

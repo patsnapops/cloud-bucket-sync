@@ -61,7 +61,21 @@ func TestHeadObject(t *testing.T) {
 
 // test GetObjectPart
 func TestGetObjectPart(t *testing.T) {
-	fmt.Println(bucketIo.GetSourceSplit("proxy", "ops-9554", "bin/123cbs", 3))
+	fmt.Println(bucketIo.GetSourceSplit("proxy", "ops-9554", "zhoushoujiantest/cbs", 3))
+	fmt.Println(bucketIo.GetSourceSplit("proxy", "ops-9554",
+		"zhoushoujiantest/1cbs", 3))
+	fmt.Println(bucketIo.GetSourceSplit("proxy", "ops-9554",
+		"zhoushoujiantest/2cbs", 3))
+	fmt.Println(bucketIo.GetSourceSplit("proxy", "ops-9554",
+		"zhoushoujiantest/3cbs", 3))
+	fmt.Println(bucketIo.GetSourceSplit("proxy", "ops-9554",
+		"zhoushoujiantest/5cbs", 3))
+	fmt.Println(bucketIo.GetSourceSplit("proxy", "ops-9554", "bin/cbs", 3))
+}
+
+// test getPartSizeByPartNu
+func TestGetPartSizeByPartNu(t *testing.T) {
+	fmt.Println(bucketIo.GetPartSizeByPartNu("proxy", "search-cn-northwest-1", "eks/s-search-insightsfee-solr/20001010/index/_7cy_Lucene70_0.dvd", 1424))
 }
 
 // test getSourceSplit
