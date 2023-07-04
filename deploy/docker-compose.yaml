@@ -1,0 +1,20 @@
+services:
+  manager:
+    image: 'cbs:latest'
+    restart: always
+    environment:
+      TZ: Asia/Shanghai
+      DEBUG: "true" # 关闭请注释掉
+      SERVICE_TYPE: manager # 决定启动命令执行的是 manager 还是 worker
+    volumes:
+      - './cbs/manager.yaml:/root/.cbs/manager.yaml'
+    ports:
+      - '8012:8080'
+  worker:
+    image: 'cbs:latest'
+    restart: always
+    environment:
+      TZ: Asia/Shanghai
+      DEBUG: "true" # 关闭请注释掉
+    volumes:
+      - './cbs/cli.yaml:/root/.cbs/cli.yaml'

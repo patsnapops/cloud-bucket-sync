@@ -1,0 +1,12 @@
+pg:
+  host: $PG_HOST
+  port: $PG_PORT
+  user: $PG_USER
+  password: $PG_PASSWORD
+  database: $PG_DATABASE
+dingtalk:
+  robot_token: $ROBOT_TOKEN
+  app_key: $APP_KEY
+  app_secret: $APP_SECRET
+  agent_id: $AGENT_ID
+  corp_id: $CORP_ID

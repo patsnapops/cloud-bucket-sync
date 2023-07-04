@@ -1,0 +1,9 @@
+profiles:
+  - name: proxy
+    ak: YOUR_AK
+    sk: YOUR_SK
+    region: cn-northwest-1
+    endpoint: "" # 留空则使用SDK 默认的endpoint
+manager:
+  endpoint: http://localhost:8012
+  api_version: api/v1

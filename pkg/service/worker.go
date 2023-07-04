@@ -122,7 +122,8 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 		if len(threadNum) == 0 {
 			break
 		}
-		log.Infof("waiting for all thread done. %d taskName %s", len(threadNum), task.Name)
+		// 基本上在等等计算源对象的分片信息，分片多比较耗时。
+		log.Debugf("waiting for all thread done. %d taskName %s", len(threadNum), task.Name)
 		time.Sleep(1 * time.Second)
 	}
 

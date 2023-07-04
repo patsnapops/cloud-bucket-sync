@@ -38,6 +38,8 @@ func init() {
 	startCmd.Flags().StringVarP(&port, "port", "p", "8012", "指定端口号(默认8012))")
 	startCmd.Flags().BoolVarP(&withOutSchedule, "without-schedule", "", false, "是否禁用定时任务(默认不禁用)")
 	startCmd.Flags().BoolVarP(&withDingtalkApprove, "with-dingtalk-approve", "", false, "任务是否开启钉钉审批(默认不开启)")
+
+	managerConfig = config.LoadManagerConfig(configPath)
 }
 
 var apiServerCmd = &cobra.Command{

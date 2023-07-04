@@ -59,10 +59,6 @@ func initApp() {
 	log.Default().WithLevel(logLevel).WithFilename(logPath).WithHumanTime(time.Local).Init()
 	// init config
 	cliConfig = config.LoadCliConfig(configPath)
-	// log.Debugf(tea.Prettify(cliConfig.Profiles))
-	managerConfig = config.LoadManagerConfig(configPath)
-	// log.Debugf(tea.Prettify(workerConfig))
-	// init Service
 	bucketIo = io.NewBucketClient(cliConfig.Profiles)
 	requestC = service.NewRequestService(cliConfig.Manager)
 	log.Debugf("init app success")
