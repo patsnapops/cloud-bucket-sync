@@ -8,6 +8,7 @@ services:
   #     SERVICE_TYPE: manager # 决定启动命令执行的是 manager 还是 worker
   #   volumes:
   #     - '~/.cbs/manager.yaml:/root/.cbs/manager.yaml'
+  #     - '/mnt/logs/cbs/manager:/opt/logs/apps'
   #   ports:
   #     - '8012:8080'
   worker:
@@ -20,3 +21,4 @@ services:
       REGION: "cn&us" # 任务节点标签后部分匹配，比如 worker_tag: aws-cn&aws-us,则会被 该节点执行。
     volumes:
       - '~/.cbs/cli.yaml:/root/.cbs/cli.yaml'
+      - '/mnt/logs/cbs/worker:/opt/logs/apps'

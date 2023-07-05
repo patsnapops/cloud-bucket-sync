@@ -10,5 +10,5 @@ fi
 if [ "$SERVICE_TYPE" == "manager" ]; then
     cbs manager start --debug=$DEBUG --log /opt/logs/apps/app.log -c ~/.cbs/ -p 8080
     else
-    cbs worker start --debug=$DEBUG --cloud=$CLOUD --region=$REGION --log /opt/logs/apps/app.log  -c ~/.cbs/
+    cbs worker start --debug=$DEBUG --cloud=$CLOUD --region=$REGION --log /opt/logs/apps/app.log  -c ~/.cbs/ --thread 8
 fi
