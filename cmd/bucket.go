@@ -66,7 +66,7 @@ func init() {
 	bucketCmd.PersistentFlags().StringVarP(&timeBefore, "time-before", "b", "", "\"2023-03-01 00:00:00\"")
 	bucketCmd.PersistentFlags().StringVarP(&timeAfter, "time-after", "a", "", "\"1992-03-01 00:00:00\"")
 	bucketCmd.PersistentFlags().Int64VarP(&queue, "queue", "q", 0, "queue")
-	bucketCmd.PersistentFlags().Int64VarP(&threadNum, "thread-num", "t", 100, "thread num,every thread will sync a object")
+	bucketCmd.PersistentFlags().Int64VarP(&threadNum, "thread-num", "t", 20, "thread num,every thread will sync a object")
 
 	syncCmd.Flags().BoolVarP(&force, "force", "f", false, "force")
 	syncCmd.Flags().BoolVarP(&isServerSide, "server-side", "s", false, "default use local network.")
@@ -303,7 +303,7 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 		threadChan <- 1
 		go func(object *model.ChanObject, targetKey string) {
 			if !isServerSide {
-				log.Infof("copy object client side")
+				log.Debugf("copy object client side")
 				isSameEtag, err := bucketIo.CopyObjectClientSide(profileFrom, profileTo, srcBucketName, *object.Obj, dstBucketName, targetKey)
 				if err != nil {
 					log.Errorf("copy object error:%s", err.Error())

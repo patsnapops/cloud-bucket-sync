@@ -19,6 +19,7 @@ services:
       # DEBUG: "true" # 关闭请注释掉
       CLOUD: "aws"
       REGION: "cn&us" # 任务节点标签后部分匹配，比如 worker_tag: aws-cn&aws-us,则会被 该节点执行。
+      THREAD: 8 # 任务节点线程数
     volumes:
       - '~/.cbs/cli.yaml:/root/.cbs/cli.yaml'
       - '/mnt/logs/cbs/worker:/opt/logs/apps'

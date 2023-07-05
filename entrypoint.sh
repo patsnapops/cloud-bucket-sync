@@ -5,10 +5,14 @@ mkdir -p /opt/logs/apps
 if [ -z "$DEBUG" ]; then
     DEBUG=false
 fi
+# 判断变量 thread 是否设置
+if [ -z "$THREAD" ]; then
+    THREAD=4
+fi
 
 # 判断服务类型如果是manager则跑manager，如果是worker则启动worker
 if [ "$SERVICE_TYPE" == "manager" ]; then
     cbs manager start --debug=$DEBUG --log /opt/logs/apps/app.log -c ~/.cbs/ -p 8080
     else
-    cbs worker start --debug=$DEBUG --cloud=$CLOUD --region=$REGION --log /opt/logs/apps/app.log  -c ~/.cbs/ --thread 12
+    cbs worker start --debug=$DEBUG --cloud=$CLOUD --region=$REGION --log /opt/logs/apps/app.log  -c ~/.cbs/ --thread $THREAD
 fi
