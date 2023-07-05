@@ -56,8 +56,8 @@ var applyCmd = &cobra.Command{
 	Short: "to create task",
 	Long:  "\nyou know for submit a task!",
 	Run: func(cmd *cobra.Command, args []string) {
+		initConfig()
 		requestC = service.NewRequestService(cliConfig.Manager)
-		initApp()
 		switch len(args) {
 		case 0:
 			applyTask(cmd, args)
@@ -72,8 +72,9 @@ var showCmd = &cobra.Command{
 	Short: "show tasks",
 	Long:  "\nyou know for show tasks!",
 	Run: func(cmd *cobra.Command, args []string) {
+		initConfig()
 		requestC = service.NewRequestService(cliConfig.Manager)
-		initApp()
+
 		switch len(args) {
 		case 0:
 			input := model.TaskInput{}
@@ -122,8 +123,8 @@ var execCmd = &cobra.Command{
 	Short: "to exec task",
 	Long:  "\nyou know for exec task!",
 	Run: func(cmd *cobra.Command, args []string) {
+		initConfig()
 		requestC = service.NewRequestService(cliConfig.Manager)
-		initApp()
 		switch len(args) {
 		case 1:
 			execTask(cmd, args)
@@ -138,8 +139,8 @@ var cancelCmd = &cobra.Command{
 	Short: "to cancel task",
 	Long:  "\nyou know for cancel task!",
 	Run: func(cmd *cobra.Command, args []string) {
+		initConfig()
 		requestC = service.NewRequestService(cliConfig.Manager)
-		initApp()
 		switch len(args) {
 		case 1:
 			cancelTask(cmd, args)

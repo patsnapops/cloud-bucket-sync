@@ -49,7 +49,7 @@ func Execute() error {
 	return rootCmd.Execute()
 }
 
-func initApp() {
+func initConfig() {
 	logLevel := log.InfoLevel
 	if debug {
 		logLevel = log.DebugLevel

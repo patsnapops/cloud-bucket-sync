@@ -93,7 +93,7 @@ var syncCmd = &cobra.Command{
 	Use:  "sync",
 	Long: "sync bucket or object with s3_url must start with s3:// or cos://",
 	Run: func(cmd *cobra.Command, args []string) {
-		initApp()
+		initConfig()
 		input := model.SyncInput{
 			Input:  model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit),
 			Force:  force,
@@ -142,7 +142,7 @@ var lsCmd = &cobra.Command{
 	Use:  "ls",
 	Long: "ls bucket or object with s3_url must start with s3://",
 	Run: func(cmd *cobra.Command, args []string) {
-		initApp()
+		initConfig()
 		input := model.NewInput(recursive, include, exclude, timeBefore, timeAfter, limit)
 		log.Debugf(tea.Prettify(input))
 		switch len(args) {
@@ -202,7 +202,7 @@ var rmCmd = &cobra.Command{
 	Use:  "rm",
 	Long: "rm bucket or object with s3_url must start with s3://\nrm default use --queue 1000 reduce memory usage and loading time.",
 	Run: func(cmd *cobra.Command, args []string) {
-		initApp()
+		initConfig()
 		// check 冲突
 		log.Debugf("file: %s, dir: %s, timeAfter: %s, timeBefore: %s", file, dir, timeAfter, timeBefore)
 		if (file != "" || dir != "") && (timeAfter != "" || timeBefore != "") {

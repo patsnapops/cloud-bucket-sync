@@ -17,6 +17,8 @@ var (
 	region  string
 	cloud   string
 	workerC model.WorkerContract
+
+	workerThreadNum int64 // 任务并发数,同时进行同步的对象数量
 )
 
 func init() {
@@ -25,7 +27,9 @@ func init() {
 	workerCmd.AddCommand(runWorker)
 	runWorker.Flags().StringVarP(&region, "region", "", "cn", "eg: cn, us, eu, ap")
 	runWorker.Flags().StringVarP(&cloud, "cloud", "", "aws", "eg: aws, azure, aliyun, huawei, tencent, google")
+	runWorker.Flags().Int64VarP(&workerThreadNum, "thread", "", 4, "worker num")
 	showWorkerCmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "output format, support table/json")
+
 }
 
 var workerCmd = &cobra.Command{
@@ -44,8 +48,9 @@ var runWorker = &cobra.Command{
 	Aliases: []string{"run"},
 	Long:    "\nyou know for start a worker!",
 	Run: func(cmd *cobra.Command, args []string) {
-		initApp()
-		workerC = service.NewWorkerService(bucketIo, requestC, model.GetThreadNum())
+		initConfig()
+		requestC = service.NewRequestService(cliConfig.Manager)
+		workerC = service.NewWorkerService(bucketIo, requestC, workerThreadNum)
 		switch len(args) {
 		case 0:
 			runWorkerCmd(cmd, args)
@@ -165,7 +170,7 @@ var showWorkerCmd = &cobra.Command{
 	Short: "show workers",
 	Long:  "\nyou know for show workers!",
 	Run: func(cmd *cobra.Command, args []string) {
-		initApp()
+		initConfig()
 		switch len(args) {
 		case 0:
 			workers, err := requestC.WorkerQuery(model.WorkerInput{})

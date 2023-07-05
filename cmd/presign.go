@@ -24,7 +24,7 @@ var presignCmd = &cobra.Command{
 	Short:   "Presign a URL for an S3 object",
 	Long:    `You know, for signing URLs`,
 	Run: func(cmd *cobra.Command, args []string) {
-		initApp()
+		initConfig()
 		switch len(args) {
 		case 1:
 			s3Url := args[0]

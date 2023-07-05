@@ -53,8 +53,8 @@ var startCmd = &cobra.Command{
 	Use:  "start",
 	Long: "start manager server, default port is 8012",
 	Run: func(cmd *cobra.Command, args []string) {
+		initConfig()
 		managerConfig = config.LoadManagerConfig(configPath)
-		initApp()
 		managerIo = io.NewManagerClient(initDB(*managerConfig))
 		dtc := io.NewDingtalkClient(initDt(), managerConfig.Dingtalk)
 		managerC = service.NewManagerService(managerIo, dtc)
