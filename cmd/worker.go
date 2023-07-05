@@ -145,7 +145,7 @@ func checkTaskAndWorkerAffinity(task *model.Task, worker model.Worker) bool {
 	}
 	taskCloud := task.WorkerTag[0:strings.Index(task.WorkerTag, "-")]
 	taskRegion := task.WorkerTag[strings.Index(task.WorkerTag, "-")+1:]
-	if taskCloud != worker.Cloud || taskRegion != worker.Region {
+	if taskCloud != worker.Cloud || !strings.Contains(worker.Region, taskRegion) {
 		log.Infof("ignore taskId:%s tag:%s", task.Id, task.WorkerTag)
 		return false
 	}

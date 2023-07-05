@@ -759,6 +759,11 @@ const docTemplate = `{
                     "description": "包含",
                     "type": "string"
                 },
+                "is_approved": {
+                    "description": "是否已经审核通过",
+                    "type": "boolean",
+                    "example": false
+                },
                 "is_deleted": {
                     "type": "boolean"
                 },

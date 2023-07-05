@@ -100,6 +100,10 @@ definitions:
       include:
         description: 包含
         type: string
+      is_approved:
+        description: 是否已经审核通过
+        example: false
+        type: boolean
       is_deleted:
         type: boolean
       is_server_side:

@@ -56,7 +56,7 @@ taskID: e549bcef-e4b5-4348-b8d6-8db99ae2037d
    "updated_at": "0001-01-01T00:00:00Z",
    "is_deleted": false,
    "is_server_side": true,
-   "worker_tag": "aws-cn", -- 这里要尽可能选择靠近目标桶的worker，因为如果你的节点流量走的nat，那么nat不管进出都收费，nat外部挂的EIP也会收费。所以我们尽可能在nat下只用流量进，因为EIP进流量是不收费。
+   "worker_tag": "aws-cn", -- aws 节点只有一个 worker,用来跑中美同步，aws的这个节点必须不用 nat否则会多流量费用，开个公网机器挂 EIP 。
    "name": "测试定时执行任务",
    "source_url": "s3://ops-9554/s3-proxy-test/",
    "target_url": "s3://ops-9554/zhoushoujiantest/popapi/",

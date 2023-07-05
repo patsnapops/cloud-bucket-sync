@@ -17,6 +17,6 @@ services:
       TZ: Asia/Shanghai
       DEBUG: "true" # 关闭请注释掉
       CLOUD: "aws"
-      REGION: "us"
+      REGION: "cn&us" # 任务节点标签后部分匹配，比如 worker_tag: aws-cn&aws-us,则会被 该节点执行。
     volumes:
       - '~/.cbs/cli.yaml:/root/.cbs/cli.yaml'
