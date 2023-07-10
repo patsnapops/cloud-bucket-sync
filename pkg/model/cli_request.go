@@ -6,6 +6,7 @@ type RequestContract interface {
 	TaskApply(args Task) (string, error)
 	TaskExec(taskID, operator, syncMode string) (string, error)
 	TaskCancel(recordID, operator string) error
+	TaskDelete(taskID string) error
 
 	RecordUpdateStatus(recordID string, status Status) error
 	RecordUpdate(Record) error

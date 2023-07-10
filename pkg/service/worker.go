@@ -137,7 +137,7 @@ func (w *WorkerService) SyncOnce(task model.Task, record model.Record) {
 	} else {
 		// all success
 		record.Status = model.TaskSuccess
-		log.Infof("sync task %s record %s success totalFile:%d,totalSize:%s", task.Id, record.Id, record.TotalFiles, model.FormatSize(record.TotalSize))
+		log.Infof("done! sync task %s record %s success totalFile:%d,totalSize:%s", task.Id, record.Id, record.TotalFiles, model.FormatSize(record.TotalSize))
 	}
 	if record.RunningMode == string(model.ModeSyncOnce) {
 		// sync once 去更新状态，实时同步的状态更新在上层更新。

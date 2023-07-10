@@ -171,6 +171,7 @@ var showWorkerCmd = &cobra.Command{
 	Long:  "\nyou know for show workers!",
 	Run: func(cmd *cobra.Command, args []string) {
 		initConfig()
+		requestC = service.NewRequestService(cliConfig.Manager)
 		switch len(args) {
 		case 0:
 			workers, err := requestC.WorkerQuery(model.WorkerInput{})

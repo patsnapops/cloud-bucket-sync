@@ -224,3 +224,11 @@ func (r *RequestService) TaskCancel(recordID, operator string) error {
 	}
 	return nil
 }
+
+func (r *RequestService) TaskDelete(taskID string) error {
+	_, err := doRequest(r.Url+"/task/"+taskID, "delete", nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}

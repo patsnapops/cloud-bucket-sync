@@ -33,6 +33,7 @@ func init() {
 	taskCmd.AddCommand(showCmd)
 	taskCmd.AddCommand(execCmd)
 	taskCmd.AddCommand(cancelCmd)
+	taskCmd.AddCommand(deleteCmd)
 	taskCmd.PersistentFlags().StringVarP(&taskFile, "file", "f", "", "task file path, default is ./task.json")
 
 	showCmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "output format, support table/json")
@@ -48,6 +49,29 @@ var taskCmd = &cobra.Command{
 	Long:    "this is task client, you know for task.",
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
+	},
+}
+
+// delete task
+var deleteCmd = &cobra.Command{
+	Use:     "delete",
+	Short:   "delete task",
+	Aliases: []string{"del"},
+	Long:    "\nyou know for delete a task!",
+	Run: func(cmd *cobra.Command, args []string) {
+		initConfig()
+		requestC = service.NewRequestService(cliConfig.Manager)
+		switch len(args) {
+		case 1:
+			taskID := args[0]
+			err := requestC.TaskDelete(taskID)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("task %s delete success\n", taskID)
+		default:
+			cmd.Help()
+		}
 	},
 }
 
