@@ -14,6 +14,7 @@ import (
 	hh "github.com/patsnapops/http-headers"
 	"github.com/patsnapops/noop/log"
 	"github.com/robfig/cron"
+	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -55,27 +56,13 @@ var startCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		initConfig()
 		managerConfig = config.LoadManagerConfig(configPath)
+		log.Infof("withDingtalkApprove: %v", withDingtalkApprove)
 		managerIo = io.NewManagerClient(initDB(*managerConfig))
 		dtc := io.NewDingtalkClient(initDt(), managerConfig.Dingtalk)
-		managerC = service.NewManagerService(managerIo, dtc)
+		managerC = service.NewManagerService(managerIo, dtc, withDingtalkApprove)
 		go startSchedule(managerC)
 		startGin()
 	},
-}
-
-func initDt() *dt.DingTalkClient {
-	config := dt.DingTalkConfig{
-		AppKey:    managerConfig.Dingtalk.AppKey,
-		AppSecret: managerConfig.Dingtalk.AppSecret,
-		CorpId:    managerConfig.Dingtalk.CorpId,
-		AgentId:   managerConfig.Dingtalk.AgentId,
-	}
-	client, err := dt.NewDingTalkClient(&config)
-	if err != nil {
-		panic(err)
-	}
-	client.WithRobotClient()
-	return client
 }
 
 func startGin() {
@@ -140,4 +127,23 @@ func initDB(apiConfig config.ManagerConfig) *gorm.DB {
 		model.Task{}, model.Record{}, model.Worker{},
 	)
 	return rdb
+}
+
+func initDt() *dt.DingTalkClient {
+	config := dt.DingTalkConfig{
+		AppKey:    managerConfig.Dingtalk.AppKey,
+		AppSecret: managerConfig.Dingtalk.AppSecret,
+		CorpId:    managerConfig.Dingtalk.CorpId,
+		AgentId:   managerConfig.Dingtalk.AgentId,
+	}
+	client, err := dt.NewDingTalkClient(&config)
+	if err != nil {
+		panic(err)
+	}
+	client.WithRobotClient()
+	if withDingtalkApprove {
+		client.WithWorkflowClientV2() // enable 工作流审批
+	}
+	client.WithMiniProgramClient(cast.ToInt64(config.AgentId)) // enable 小程序通知等
+	return client
 }

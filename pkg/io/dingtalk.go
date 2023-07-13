@@ -6,6 +6,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/alibabacloud-go/tea/tea"
 	dt "github.com/patsnapops/go-dingtalk-sdk-wrapper"
 	"github.com/patsnapops/noop/log"
 )
@@ -43,4 +44,33 @@ func (d *DingtalkService) RobotSendText(content string) error {
 		return nil
 	}
 	return err
+}
+
+func (d *DingtalkService) CreateDingTalkProcess(task model.Task) (processID string, err error) {
+	userid, departid, err := getUserInfoByName(task.Submitter)
+	if err != nil {
+		return "", err
+	}
+	input := &dt.CreateProcessInstanceInput{
+		ProcessCode:      d.Config.ApproveInfo.ProcessCode,
+		OriginatorUserID: userid,
+		FormComponentValues: []dt.FormComponentValue{
+			{
+				Name:  "工单类型",
+				Value: "auto",
+			}, {
+				Name:  "资源类型",
+				Value: "s3Sync",
+			}, {
+				Name:  "其他信息",
+				Value: tea.Prettify(task),
+			},
+		},
+		DeptId: departid,
+	}
+	return d.Dt.Workflow.CreateProcessInstance(input)
+}
+
+func getUserInfoByName(name string) (string, string, error) {
+	return "", "", nil
 }

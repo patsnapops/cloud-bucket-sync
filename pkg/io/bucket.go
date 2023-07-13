@@ -634,6 +634,7 @@ func (c *bucketClient) CopyObjectClientSide(sourceProfile, targetProfile, source
 	}
 	sourcePart := model.GetPartsCount(sourceObj.ETag)
 
+	log.Infof(`start copy s3://%s/%s => s3://%s/%s %s`, sourceBucket, sourceObj.Key, targetBucket, targetKey, model.FormatSize(sourceObj.Size))
 	if sourcePart >= 1 {
 		upload_id, err := c.CreateMutiUpload(targetProfile, targetBucket, targetKey)
 		if err != nil {

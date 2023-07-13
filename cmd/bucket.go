@@ -302,6 +302,9 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 		}
 		threadChan <- 1
 		go func(object *model.ChanObject, targetKey string) {
+			defer func() {
+				<-threadChan
+			}()
 			if !isServerSide {
 				log.Debugf("copy object client side")
 				isSameEtag, err := bucketIo.CopyObjectClientSide(profileFrom, profileTo, srcBucketName, *object.Obj, dstBucketName, targetKey)
@@ -309,19 +312,19 @@ func syncBucketToBucket(sourceUrl, targetUrl string, input model.SyncInput) {
 					log.Errorf("copy object error:%s", err.Error())
 				}
 				if isSameEtag {
-					log.Infof("same Etag ,skip copy")
+					log.Debugf("same Etag,skip copy")
 				}
 			} else {
-				log.Infof("copy object server side")
+				log.Debugf("copy object server side")
 				isSameEtag, err := bucketIo.CopyObjectServerSide(profileFrom, srcBucketName, *object.Obj, dstBucketName, targetKey)
 				if err != nil {
 					log.Errorf("copy object error:%s", err.Error())
 				}
 				if isSameEtag {
-					log.Infof("same Etag ,skip copy")
+					log.Debugf("same Etag,skip copy")
 				}
 			}
-			<-threadChan
+
 		}(object, targetKey)
 	}
 	for {

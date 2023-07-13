@@ -51,6 +51,7 @@ var runWorker = &cobra.Command{
 		initConfig()
 		requestC = service.NewRequestService(cliConfig.Manager)
 		workerC = service.NewWorkerService(bucketIo, requestC, workerThreadNum)
+		log.Infof("worker ThreadNum is %d", workerThreadNum)
 		switch len(args) {
 		case 0:
 			runWorkerCmd(cmd, args)

@@ -24,11 +24,16 @@ type PostgresConfig struct {
 }
 
 type DingtalkConfig struct {
-	RobotToken string `mapstructure:"robot_token"`
-	AppKey     string `mapstructure:"app_key"`
-	AppSecret  string `mapstructure:"app_secret"`
-	CorpId     string `mapstructure:"corp_id"`
-	AgentId    string `mapstructure:"agent_id"`
+	RobotToken  string      `mapstructure:"robot_token"`
+	AppKey      string      `mapstructure:"app_key"`
+	AppSecret   string      `mapstructure:"app_secret"`
+	CorpId      string      `mapstructure:"corp_id"`
+	AgentId     string      `mapstructure:"agent_id"`
+	ApproveInfo ApproveInfo `mapstructure:"approve_info"`
+}
+
+type ApproveInfo struct {
+	ProcessCode string `mapstructure:"process_code"`
 }
 
 func (c *PostgresConfig) GetUrl() string {

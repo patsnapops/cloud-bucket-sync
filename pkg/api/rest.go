@@ -58,5 +58,61 @@ func ApplyRoutes(routerGroup *gin.RouterGroup, managerio model.ManagerIo, manage
 	{
 		e.POST("", ExecuteTask)
 	}
+	// dingtalk webhook
+	{
+		routerGroup.POST("/webhook", DingTalkWebHook)
+	}
 
+}
+
+type WebhookRequest struct {
+	ProcessInstanceId string `json:"processInstanceId" binding:"required"`
+	Result            string `json:"result" binding:"required"`
+}
+
+// @Summary https://github.com/patsnapops/dingtalk_miniprogram_webhook的回调接口
+// @Description 用于接收钉钉机器人的回调
+// @Tags webhook
+// @Accept  json
+// @Produce  json
+// @Param webhook body WebhookRequest true "webhook"
+// @Success 200 {string} string	"ok"
+// @Router /api/v1/webhook [post]
+func DingTalkWebHook(c *gin.Context) {
+	var req WebhookRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Errorf("bind json error: %v", err)
+		c.JSON(500, gin.H{
+			"message": err.Error(),
+		})
+		return
+	}
+	log.Debugf("req: %v", req)
+	tasks, err := managerIo.QueryTask(model.TaskInput{
+		InstanceId: req.ProcessInstanceId,
+	})
+	if err != nil {
+		log.Errorf("query task error: %v", err)
+		c.JSON(500, gin.H{
+			"message": err.Error(),
+		})
+		return
+	}
+	if len(tasks) != 1 {
+		log.Errorf("query task error: %v", err)
+		c.JSON(500, gin.H{
+			"message": "query task error,more than one task",
+		})
+		return
+	}
+	task := tasks[0]
+	task.ApproveResult = req.Result
+	if managerIo.UpdateTask(task) != nil {
+		log.Errorf("update task error: %v", err)
+		c.JSON(500, gin.H{
+			"message": err.Error(),
+		})
+		return
+	}
+	c.JSON(200, "ok")
 }

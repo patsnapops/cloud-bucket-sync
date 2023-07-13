@@ -1,7 +1,6 @@
 package io
 
 import (
-	"cbs/config"
 	"cbs/pkg/model"
 	"time"
 
@@ -119,9 +118,8 @@ func (c *managerClient) GetTaskById(taskID string) (*model.Task, error) {
 	return &task, err
 }
 
-func (c *managerClient) CreateTask(task *model.Task, managerConfig config.ManagerConfig) (string, error) {
+func (c *managerClient) CreateTask(task *model.Task) (string, error) {
 	task.Id = uuid.New().String()
-	// task.WorkerTag = fmtWorkerTag(task, managerConfig)
 	return task.Id, c.db.Create(task).Error
 }
 

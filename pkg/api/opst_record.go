@@ -28,7 +28,7 @@ func GetTaskRecordList(c *gin.Context) {
 		RecordID: recordID,
 	}
 	log.Debugf("input: %+v", input)
-	res, err := managerIo.QueryRecord(input)
+	res, err := managerContract.QueryRecord(input)
 	if err != nil {
 		c.JSON(500, err.Error())
 		return

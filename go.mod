@@ -10,7 +10,7 @@ require (
 	github.com/imroc/req v0.3.2
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/patsnapops/ginx v0.1.3
-	github.com/patsnapops/go-dingtalk-sdk-wrapper v0.0.3
+	github.com/patsnapops/go-dingtalk-sdk-wrapper v0.0.4
 	github.com/patsnapops/http-headers v0.0.0-20230215051743-3156c9c280e2
 	github.com/patsnapops/noop v0.4.0
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475

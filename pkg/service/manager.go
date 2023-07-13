@@ -10,14 +10,16 @@ import (
 )
 
 type ManagerService struct {
-	Client model.ManagerIo
-	Dt     model.DingtalkIo
+	Client              model.ManagerIo
+	Dt                  model.DingtalkIo
+	withDingtalkApprove bool
 }
 
-func NewManagerService(client model.ManagerIo, dtc model.DingtalkIo) model.ManagerContract {
+func NewManagerService(client model.ManagerIo, dtc model.DingtalkIo, withDingtalkApprove bool) model.ManagerContract {
 	return &ManagerService{
-		Client: client,
-		Dt:     dtc,
+		Client:              client,
+		Dt:                  dtc,
+		withDingtalkApprove: withDingtalkApprove,
 	}
 }
 
@@ -169,4 +171,49 @@ func (s *ManagerService) cornMatch(task model.Task) bool {
 	// Compare the next scheduled time with the current time
 
 	return (nextTime.Minute() == now.Minute()) && (nextTime.Hour() == now.Hour()) && (nextTime.Day() == now.Day()) && (nextTime.Month() == now.Month()) && (nextTime.Year() == now.Year())
+}
+
+func (s *ManagerService) CreateTask(task *model.Task) (taskID string, err error) {
+	taskID, err = s.Client.CreateTask(task)
+	if err != nil {
+		return taskID, err
+	}
+	if task.Corn == "" {
+		// 不是定时任务的，立刻创建一个record
+		recordID, err := s.Client.ExecuteTask(task.Id, task.Submitter, task.SyncMode)
+		if err != nil {
+			return task.Id, fmt.Errorf("task create success, but execute task error: %v", err)
+		}
+		log.Infof("execute task success, taskID: %s, recordID: %s", taskID, recordID)
+	}
+	if s.withDingtalkApprove {
+		// 创建钉钉审批流程
+		processID, err := s.Client.CreateDingTalkProcess(task.Id)
+		if err != nil {
+			return task.Id, fmt.Errorf("task create success, but create dingtalk process error: %v", err)
+		}
+		log.Infof("create dingtalk process success, taskID: %s, processID: %s", taskID, processID)
+	}
+	return taskID, nil
+}
+
+func (s *ManagerService) QueryRecord(input model.RecordInput) ([]*model.Record, error) {
+	records, err := s.Client.QueryRecord(input)
+	if err != nil {
+		return records, err
+	}
+	if s.withDingtalkApprove {
+		recordsTmp := make([]*model.Record, 0)
+		for _, record := range records {
+			task, err := s.Client.GetTaskById(record.TaskId)
+			if err != nil {
+				return records, err
+			}
+			if task.ApproveResult == "agree" {
+				recordsTmp = append(recordsTmp, record)
+			}
+		}
+		return recordsTmp, nil
+	}
+	return records, nil
 }

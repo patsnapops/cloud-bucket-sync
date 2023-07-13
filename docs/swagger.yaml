@@ -8,6 +8,16 @@ definitions:
       status:
         type: string
     type: object
+  api.WebhookRequest:
+    properties:
+      processInstanceId:
+        type: string
+      result:
+        type: string
+    required:
+    - processInstanceId
+    - result
+    type: object
   model.Record:
     properties:
       cost_time:
@@ -85,12 +95,18 @@ definitions:
     - TaskNotAllSuccess
   model.Task:
     properties:
+      approve_result:
+        description: 审批结果 agree,refuse
+        example: agree
+        type: string
       corn:
         description: 格式为 分、时、日、月、周                                                      //
           cron表达式 用于定时任务 ’分 时 日 月 周‘
         example: 0 */8 * * 1,2,3,4,5
         type: string
       created_at:
+        type: string
+      dingtalk_instance_id:
         type: string
       exclude:
         description: 排除
@@ -100,10 +116,6 @@ definitions:
       include:
         description: 包含
         type: string
-      is_approved:
-        description: 是否已经审核通过
-        example: false
-        type: boolean
       is_deleted:
         type: boolean
       is_server_side:
@@ -497,6 +509,28 @@ paths:
       summary: update task
       tags:
       - task
+  /api/v1/webhook:
+    post:
+      consumes:
+      - application/json
+      description: 用于接收钉钉机器人的回调
+      parameters:
+      - description: webhook
+        in: body
+        name: webhook
+        required: true
+        schema:
+          $ref: '#/definitions/api.WebhookRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: string
+      summary: https://github.com/patsnapops/dingtalk_miniprogram_webhook的回调接口
+      tags:
+      - webhook
   /api/v1/worker:
     get:
       consumes:

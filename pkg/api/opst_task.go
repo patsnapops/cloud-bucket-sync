@@ -70,22 +70,11 @@ func CreateTask(c *gin.Context) {
 		c.JSON(500, err.Error())
 		return
 	}
-	taskID, err := managerIo.CreateTask(&req, managerConfig)
+	taskID, err := managerContract.CreateTask(&req)
 	if err != nil {
 		c.JSON(500, err.Error())
 		return
 	}
-	// 任务创建成功后，判断是否有定时任务配置决定是否立即启动任务
-	if req.Corn == "" {
-		recordID, err := managerIo.ExecuteTask(taskID, req.Submitter, req.SyncMode)
-		if err != nil {
-			log.Errorf("execute task error: %v", err)
-			c.JSON(500, err.Error())
-			return
-		}
-		log.Infof("execute task success, taskID: %s, recordID: %s", taskID, recordID)
-	}
-
 	c.JSON(200, taskID)
 }
 

@@ -446,6 +446,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/webhook": {
+            "post": {
+                "description": "用于接收钉钉机器人的回调",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "webhook"
+                ],
+                "summary": "https://github.com/patsnapops/dingtalk_miniprogram_webhook的回调接口",
+                "parameters": [
+                    {
+                        "description": "webhook",
+                        "name": "webhook",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.WebhookRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/worker": {
             "get": {
                 "description": "get all worker list",
@@ -626,6 +660,21 @@ const docTemplate = `{
                 }
             }
         },
+        "api.WebhookRequest": {
+            "type": "object",
+            "required": [
+                "processInstanceId",
+                "result"
+            ],
+            "properties": {
+                "processInstanceId": {
+                    "type": "string"
+                },
+                "result": {
+                    "type": "string"
+                }
+            }
+        },
         "model.Record": {
             "type": "object",
             "properties": {
@@ -740,12 +789,20 @@ const docTemplate = `{
                 "worker_tag"
             ],
             "properties": {
+                "approve_result": {
+                    "description": "审批结果 agree,refuse",
+                    "type": "string",
+                    "example": "agree"
+                },
                 "corn": {
                     "description": "格式为 分、时、日、月、周                                                      // cron表达式 用于定时任务 ’分 时 日 月 周‘",
                     "type": "string",
                     "example": "0 */8 * * 1,2,3,4,5"
                 },
                 "created_at": {
+                    "type": "string"
+                },
+                "dingtalk_instance_id": {
                     "type": "string"
                 },
                 "exclude": {
@@ -758,11 +815,6 @@ const docTemplate = `{
                 "include": {
                     "description": "包含",
                     "type": "string"
-                },
-                "is_approved": {
-                    "description": "是否已经审核通过",
-                    "type": "boolean",
-                    "example": false
                 },
                 "is_deleted": {
                     "type": "boolean"
