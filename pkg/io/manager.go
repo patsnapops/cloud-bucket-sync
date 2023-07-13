@@ -100,8 +100,9 @@ func (c *managerClient) QueryTask(input model.TaskInput) ([]*model.Task, error) 
 	var tasks []*model.Task
 	// log.Debugf(tea.Prettify(input))
 	sql := c.db.Model(&tasks).Where(&model.Task{
-		Id:        input.ID,
-		WorkerTag: input.WorkerTag,
+		Id:                 input.ID,
+		WorkerTag:          input.WorkerTag,
+		DingtalkInstanceId: input.InstanceId,
 	}).Where("is_deleted = ?", false).Order("created_at")
 	if input.Name != "" {
 		sql.Where("name like ?", input.Name)
