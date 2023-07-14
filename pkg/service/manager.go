@@ -188,9 +188,17 @@ func (s *ManagerService) CreateTask(task *model.Task) (taskID string, err error)
 	}
 	if s.withDingtalkApprove {
 		// 创建钉钉审批流程
-		processID, err := s.Client.CreateDingTalkProcess(task.Id)
+		processID, err := s.Dt.CreateDingTalkProcess(task)
 		if err != nil {
 			return task.Id, fmt.Errorf("task create success, but create dingtalk process error: %v", err)
+		}
+		// 更新task的processID
+		err = s.Client.UpdateTask(&model.Task{
+			Id:                 taskID,
+			DingtalkInstanceId: processID,
+		})
+		if err != nil {
+			return task.Id, fmt.Errorf("task create success, but update task processID %s error: %v", processID, err)
 		}
 		log.Infof("create dingtalk process success, taskID: %s, processID: %s", taskID, processID)
 	}
@@ -202,6 +210,7 @@ func (s *ManagerService) QueryRecord(input model.RecordInput) ([]*model.Record, 
 	if err != nil {
 		return records, err
 	}
+	// 支持审批特性，只返回审批通过的记录
 	if s.withDingtalkApprove {
 		recordsTmp := make([]*model.Record, 0)
 		for _, record := range records {

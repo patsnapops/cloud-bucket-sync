@@ -111,5 +111,6 @@ func DingTalkWebHook(c *gin.Context) {
 		})
 		return
 	}
+	log.Infof("update task %s approve result to %s success", task.Id, req.Result)
 	c.JSON(200, "ok")
 }

@@ -90,7 +90,6 @@ func LoadManagerConfig(configDir string) *ManagerConfig {
 	if !strings.HasSuffix(configDir, "/") {
 		configDir = configDir + "/"
 	}
-	log.Debugf("config dir %s", configDir)
 	apiConfig := &ManagerConfig{}
 	err := loadConfig(configDir + "manager.yaml")
 	if err != nil {

@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/alibabacloud-go/tea/tea"
+)
 
 type Task struct {
 	Id                 string    `json:"id" gorm:"primary_key,unique_index,not null"`
@@ -27,6 +31,8 @@ type Task struct {
 	Meta               string    `json:"meta" gorm:"type:text" example:"Expires:2022-10-12T00:00:00.000Z#Cache-Control:no-cache#Content-Encoding:gzip#x-cos-meta-x:x"` // 任务元信息
 	ApproveResult      string    `json:"approve_result" gorm:"not null;default:''" example:"agree"`                                                                    // 审批结果 agree,refuse
 	DingtalkInstanceId string    `json:"dingtalk_instance_id" gorm:"not null;default:''" `
+	// DingtalkUserId     string    `json:"dingtalk_user_id" gorm:"not null;default:''" `
+	// DingtalkDepartId   string    `json:"dingtalk_depart_id" gorm:"not null;default:''" `
 }
 
 func (t *Task) ToMap() map[string]interface{} {
@@ -54,6 +60,29 @@ func (t *Task) ToMap() map[string]interface{} {
 		"storage_class":  t.StorageClass,
 		"meta":           t.Meta,
 	}
+}
+
+func (t *Task) ToMapWithApprove() string {
+	return tea.Prettify(map[string]interface{}{
+		"id":             t.Id,
+		"created_at":     t.CreatedAt,
+		"worker_tag":     t.WorkerTag,
+		"is_server_side": t.IsServerSide,
+		"name":           t.Name,
+		"source_url":     t.SourceUrl,
+		"target_url":     t.TargetUrl,
+		"source_profile": t.SourceProfile,
+		"target_profile": t.TargetProfile,
+		"sync_mode":      t.SyncMode,
+		"submitter":      t.Submitter,
+		"corn":           t.Corn,
+		"time_before":    t.TimeBefore,
+		"time_after":     t.TimeAfter,
+		"include":        t.Include,
+		"exclude":        t.Exclude,
+		"storage_class":  t.StorageClass,
+		"meta":           t.Meta,
+	})
 }
 
 func StringToTime(str string) *time.Time {

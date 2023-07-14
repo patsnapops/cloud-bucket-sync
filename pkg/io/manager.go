@@ -125,7 +125,7 @@ func (c *managerClient) CreateTask(task *model.Task) (string, error) {
 }
 
 func (c *managerClient) UpdateTask(task *model.Task) error {
-	return c.db.Save(task).Error
+	return c.db.Model(&model.Task{}).Where("id = ?", task.Id).Updates(task).Error
 }
 
 func (c *managerClient) DeleteTask(taskID string) error {
@@ -154,8 +154,4 @@ func (c *managerClient) ExecuteTask(taskID, operator, runningMode string) (strin
 	}
 	resL := c.db.Model(&recordTask).Create(&recordTask)
 	return recordTask.Id, resL.Error
-}
-
-func (c *managerClient) CreateDingTalkProcess(taskID string) (processID string, err error) {
-	return
 }

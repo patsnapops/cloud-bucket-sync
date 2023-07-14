@@ -283,8 +283,8 @@ github.com/patsnapops/go-dingtalk-sdk-wrapper v0.0.4 h1:NISUwgnJ8+Ivr6ITTGbLwU3s
 github.com/patsnapops/go-dingtalk-sdk-wrapper v0.0.4/go.mod h1:P050qeVaBMe7hJCVVtDFkY/Qf2qbtzsI0DIUULePHLo=
 github.com/patsnapops/http-headers v0.0.0-20230215051743-3156c9c280e2 h1:qfvuhs/A2BA4yQRLJYI/Ly7OLaC2sqRiSlcIiBus/Qo=
 github.com/patsnapops/http-headers v0.0.0-20230215051743-3156c9c280e2/go.mod h1:KyR1WP94Bz5KAT80f0j2wAih/QX9x45TDKfq4e+HJLg=
-github.com/patsnapops/noop v0.4.0 h1:LqsySjIFIlyVEkrDIfvKLn9rl3VKcyv9XFer0fM4V4M=
-github.com/patsnapops/noop v0.4.0/go.mod h1:yVdWFmTcn6xxjpDqGp8Eym9EUwC9NXvofJczO7ZdnOU=
+github.com/patsnapops/noop v0.4.1 h1:+waTrsAbRxiM1hUkAn/02f6v0QsFLnJrOJrJ1epOg0k=
+github.com/patsnapops/noop v0.4.1/go.mod h1:yVdWFmTcn6xxjpDqGp8Eym9EUwC9NXvofJczO7ZdnOU=
 github.com/pelletier/go-toml/v2 v2.0.1/go.mod h1:r9LEWfGN8R5k0VXJ+0BkIe7MYkRdwZOjgMj2KwnJFUo=
 github.com/pelletier/go-toml/v2 v2.0.6 h1:nrzqCb7j9cDFj2coyLNLaZuJTLjWjlaz6nvTvIwycIU=
 github.com/pelletier/go-toml/v2 v2.0.6/go.mod h1:eumQOmlWiOPt5WriQQqoM5y18pDHwha2N+QD+EUNTek=

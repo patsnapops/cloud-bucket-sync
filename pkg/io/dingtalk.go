@@ -46,7 +46,7 @@ func (d *DingtalkService) RobotSendText(content string) error {
 	return err
 }
 
-func (d *DingtalkService) CreateDingTalkProcess(task model.Task) (processID string, err error) {
+func (d *DingtalkService) CreateDingTalkProcess(task *model.Task) (processID string, err error) {
 	userid, departid, err := getUserInfoByName(task.Submitter)
 	if err != nil {
 		return "", err
@@ -63,14 +63,15 @@ func (d *DingtalkService) CreateDingTalkProcess(task model.Task) (processID stri
 				Value: "s3Sync",
 			}, {
 				Name:  "其他信息",
-				Value: tea.Prettify(task),
+				Value: task.ToMapWithApprove(),
 			},
 		},
 		DeptId: departid,
 	}
+	log.Debugf(tea.Prettify(input))
 	return d.Dt.Workflow.CreateProcessInstance(input)
 }
 
-func getUserInfoByName(name string) (string, string, error) {
-	return "", "", nil
+func getUserInfoByName(name string) (userId, departId string, err error) {
+	return "29070242122092575562", "90229821", nil
 }

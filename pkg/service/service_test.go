@@ -15,6 +15,8 @@ var (
 	bucketIo model.BucketIo
 	workerC  model.WorkerContract
 	requestC model.RequestContract
+	mangerIo model.ManagerIo
+	mana     model.ManagerContract
 )
 
 var (
@@ -26,11 +28,15 @@ var (
 
 func init() {
 	cliConfig := config.LoadCliConfig("../../config/")
+	managerConfig := config.LoadManagerConfig("../../config/")
 	log.Default().WithLevel(log.DebugLevel).Init()
-	log.Debugf("cliConfig: %v", cliConfig.Profiles)
 	bucketIo = io.NewBucketClient(cliConfig.Profiles)
+	mangerIo = io.NewManagerClient(config.InitDB(*managerConfig, true))
 	requestC = service.NewRequestService(cliConfig.Manager)
 	workerC = service.NewWorkerService(bucketIo, requestC, 1)
+	client := config.InitDt(*managerConfig, true)
+	dingtalkC := io.NewDingtalkClient(client, managerConfig.Dingtalk)
+	mana = service.NewManagerService(mangerIo, dingtalkC, true)
 }
 
 // request test
@@ -114,4 +120,29 @@ func TestCopyObjectServerSide(t *testing.T) {
 // test CalculateEvenSplitsByPartSize
 func TestCalculateEvenSplitsByPartSize(t *testing.T) {
 	model.CalculateEvenSplitsByPartSize(108152993, 17179870)
+}
+
+func TestCreateTaskWithApprove(t *testing.T) {
+	task := &model.Task{
+		Submitter:     "zhoushoujian",
+		SourceProfile: "cn9554",
+		TargetProfile: "us0066",
+		SourceUrl:     "s3://ops-9554/zhoushoujiantest/1cbs",
+		TargetUrl:     "s3://zhoushoujiantest/1cbs",
+		WorkerTag:     "debug-cn",
+	}
+	taskID, err := mana.CreateTask(task)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(taskID)
+}
+
+func TestUpdateTask(t *testing.T) {
+	fmt.Println(mangerIo.UpdateTask(&model.Task{
+		Id:                 "d5391542-8306-4424-b5d4-379014c1b472",
+		DingtalkInstanceId: "JGnMNypzRvSdUILJVkGwbA07561689316494",
+		// IsServerSide:       tea.Bool(true),
+		// IsSilence:          tea.Bool(true),
+	}))
 }

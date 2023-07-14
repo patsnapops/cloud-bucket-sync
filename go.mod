@@ -12,7 +12,7 @@ require (
 	github.com/patsnapops/ginx v0.1.3
 	github.com/patsnapops/go-dingtalk-sdk-wrapper v0.0.4
 	github.com/patsnapops/http-headers v0.0.0-20230215051743-3156c9c280e2
-	github.com/patsnapops/noop v0.4.0
+	github.com/patsnapops/noop v0.4.1
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/robfig/cron v1.2.0
 	github.com/spf13/cast v1.5.0
