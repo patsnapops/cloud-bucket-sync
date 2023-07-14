@@ -102,6 +102,10 @@ func DingTalkWebHook(c *gin.Context) {
 		c.JSON(500, "more than one task matched, please check")
 		return
 	}
+	if len(tasks) == 0 {
+		c.JSON(500, "no task matched, please check")
+		return
+	}
 	task := tasks[0]
 	task.ApproveResult = req.Result
 	if managerIo.UpdateTask(task) != nil {
