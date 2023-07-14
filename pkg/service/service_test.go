@@ -146,3 +146,13 @@ func TestUpdateTask(t *testing.T) {
 		// IsSilence:          tea.Bool(true),
 	}))
 }
+
+func TestQueryTask(t *testing.T) {
+	tasks, er := mangerIo.QueryTask(model.TaskInput{
+		InstanceId: "VCcdTRyKSRGEB6qzlishpA07561689317714",
+	})
+	if er != nil {
+		t.Errorf("query task error: %v", er)
+	}
+	fmt.Println(tasks)
+}

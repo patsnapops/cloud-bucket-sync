@@ -98,7 +98,7 @@ func DingTalkWebHook(c *gin.Context) {
 		})
 		return
 	}
-	if len(tasks) >= 1 {
+	if len(tasks) > 1 {
 		c.JSON(500, "more than one task matched, please check")
 		return
 	}
