@@ -98,12 +98,8 @@ func DingTalkWebHook(c *gin.Context) {
 		})
 		return
 	}
-	if len(tasks) != 1 {
-		log.Debugf("tasks: %v %d", tasks, len(tasks))
-		log.Errorf("query task error: %v", err)
-		c.JSON(500, gin.H{
-			"message": "query task error,more than one task",
-		})
+	if len(tasks) >= 1 {
+		c.JSON(500, "more than one task matched, please check")
 		return
 	}
 	task := tasks[0]
